@@ -54,9 +54,14 @@ def make_demo_games(n: int = 400, seed: int = 7) -> pd.DataFrame:
             winner="blue" if gd15 + rng.normal(0, 1500) > 0 else "red",
             gd15=gd15, data_complete=True,
         )
+        used: set[str] = set()  # 한 경기 안에서는 같은 챔피언이 두 번 나오지 않는다
         for side in ("blue", "red"):
             for pos in POSITIONS:
-                row[f"{side}_{pos}"] = str(rng.choice(POOL[pos], p=weights))
+                champ = str(rng.choice(POOL[pos], p=weights))
+                while champ in used:
+                    champ = str(rng.choice(POOL[pos], p=weights))
+                used.add(champ)
+                row[f"{side}_{pos}"] = champ
         # LPL 일부 경기는 픽 하나가 비어 있는 것처럼 만든다
         if league == "LPL" and rng.random() < 0.15:
             row[f"{rng.choice(['blue', 'red'])}_{rng.choice(POSITIONS)}"] = None
