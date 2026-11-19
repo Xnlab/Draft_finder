@@ -3,7 +3,8 @@ import pytest
 
 from src.search import (
     apply_filters, find_matchup, find_same_champions, game_picks,
-    similar_both, similar_one_side, similar_to_game, summarize, summary_line,
+    matched_gd15, similar_both, similar_one_side, similar_to_game, summarize,
+    summary_line,
 )
 
 
@@ -135,6 +136,22 @@ def test_filters_applied_before_similarity(games):
     res = similar_one_side(games, ["Aatrox", "Vi", "Orianna", "Jinx", "Lulu"],
                            sets=[4, 5])
     assert ids(res) == {"G3", "G5", "G6"}
+
+
+def test_team_results_carry_opponent_picks(games):
+    res = find_matchup(games, "mid", "Azir", "Orianna")
+    g1 = res[res["game_id"] == "G1"].iloc[0]  # 아지르는 레드, 상대(블루) 팀 픽이 따라온다
+    assert g1["opp_mid"] == "Orianna" and g1["opp_top"] == "Aatrox"
+
+
+def test_matched_gd15_is_from_matched_team_view(games):
+    one = similar_one_side(games, ["Gnar", "Sejuani", "Azir", "Kai'Sa", "Nautilus"], top_n=2)
+    gd_one = dict(zip(one["game_id"], one["gd15"]))
+    assert gd_one == {"G3": 100, "G1": -500}  # G3은 블루로, G1은 레드로 매칭 → 각 팀 기준
+    both = similar_both(games, ["Gnar", "Sejuani", "Azir", "Kai'Sa", "Nautilus"],
+                        ["Aatrox", "Vi", "Orianna", "Jinx", "Lulu"], top_n=2)
+    gd = dict(zip(both["game_id"], matched_gd15(both)))
+    assert gd == {"G1": -500, "G3": 100}  # A = G1 레드 조합
 
 
 # ---- 결과 요약

@@ -1,6 +1,6 @@
 import pytest
 
-from src.names import NameResolver, UnknownChampionError, normalize
+from src.names import IconResolver, NameResolver, UnknownChampionError, normalize
 
 MAP = {"오리아나": "Orianna", "카이사": "Kai'Sa", "누누와 윌럼프": "Nunu & Willump"}
 
@@ -35,6 +35,14 @@ def test_to_korean_roundtrip(resolver):
 
 def test_unknown_in_data_warns_about_missing_names(resolver):
     assert resolver.unknown_in_data(["Orianna", "KaiSa", "Brand New"]) == ["Brand New"]
+
+
+def test_icon_url():
+    icons = IconResolver({"version": "16.1.1", "files": {"Kai'Sa": "Kaisa.png"}})
+    assert icons.url("Kai'Sa").endswith("/cdn/16.1.1/img/champion/Kaisa.png")
+    assert icons.url("kaisa") == icons.url("Kai'Sa")
+    assert icons.url("Nobody") is None
+    assert IconResolver(None).url("Kai'Sa") is None  # 아이콘 정보를 못 받으면 None
 
 
 def test_normalize():

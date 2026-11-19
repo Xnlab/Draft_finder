@@ -54,6 +54,45 @@ def load_name_map(refresh: bool = False) -> dict[str, str]:
     return mapping
 
 
+ICON_CACHE_PATH = CACHE_PATH.with_name("icons.json")
+
+
+def fetch_icon_info(version: str | None = None, timeout: int = 20) -> dict:
+    """Data Dragon에서 {"version", "files": {영문 이름: 아이콘 파일명}}을 받아 온다."""
+    if version is None:
+        res = requests.get(f"{DDRAGON}/api/versions.json", timeout=timeout)
+        res.raise_for_status()
+        version = res.json()[0]
+    r = requests.get(f"{DDRAGON}/cdn/{version}/data/en_US/champion.json", timeout=timeout)
+    r.raise_for_status()
+    files = {c["name"]: c["image"]["full"] for c in r.json()["data"].values()}
+    return {"version": version, "files": files}
+
+
+def load_icon_info(refresh: bool = False) -> dict:
+    if ICON_CACHE_PATH.exists() and not refresh:
+        return json.loads(ICON_CACHE_PATH.read_text(encoding="utf-8"))
+    info = fetch_icon_info()
+    ICON_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    ICON_CACHE_PATH.write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
+    return info
+
+
+class IconResolver:
+    """영문 챔피언 이름 → Data Dragon 아이콘 URL. 모르는 이름이면 None."""
+
+    def __init__(self, info: dict | None):
+        info = info or {"version": "", "files": {}}
+        self.version = info["version"]
+        self._files = {normalize(n): f for n, f in info["files"].items()}
+
+    def url(self, english: str) -> str | None:
+        f = self._files.get(normalize(english))
+        if not f or not self.version:
+            return None
+        return f"{DDRAGON}/cdn/{self.version}/img/champion/{f}"
+
+
 class NameResolver:
     def __init__(self, ko_to_en: dict[str, str]):
         self.ko_to_en = dict(ko_to_en)

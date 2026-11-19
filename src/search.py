@@ -88,9 +88,10 @@ def team_rows(df) -> pd.DataFrame:
 def _team_result(t, extra=(), sort_by_date=True) -> pd.DataFrame:
     """팀 한 줄 결과 표 정리: 보여 줄 열만 고르고, 빈 챔피언은 "없음"으로."""
     cols = META_COLS + ["team", "side", "opponent", "win", "gd15"] + list(extra)
-    cols += POSITIONS + ["data_complete"]
+    opp = [f"opp_{p}" for p in POSITIONS]  # 상대 팀 챔피언 (화면의 드래프트 보드용)
+    cols += POSITIONS + ["data_complete"] + opp
     out = t[[c for c in cols if c in t]].copy()
-    out[POSITIONS] = out[POSITIONS].fillna(MISSING)
+    out[POSITIONS + opp] = out[POSITIONS + opp].fillna(MISSING)
     if sort_by_date:
         out = out.sort_values("date", ascending=False, kind="stable")
     return out.reset_index(drop=True)
@@ -206,6 +207,14 @@ def summarize(result: pd.DataFrame) -> dict:
         "losses": int((~known.astype(bool)).sum()),
         "unknown": len(result) - len(known),
     }
+
+
+def matched_gd15(result: pd.DataFrame) -> pd.Series:
+    """15분 골드차를 '매칭된 팀' 기준으로 맞춘다 (양쪽 비교는 조합 A에 대응된 팀 기준)."""
+    if "win" in result:  # 팀 한 줄 결과: 이미 그 팀 기준
+        return result["gd15"]
+    sign = result["a_side"].map({"blue": 1, "red": -1})
+    return result["gd15"] * sign
 
 
 def summary_line(result: pd.DataFrame) -> str:
