@@ -52,6 +52,8 @@ CSS = """
 .bar{flex:1;height:6px;background:#263040;border-radius:99px;overflow:hidden}
 .bar i{display:block;height:100%;background:linear-gradient(90deg,#4f8cff,#7fb0ff)}
 .more{color:#8b98a9;font-size:.85rem;margin-top:10px}
+[data-testid="stWidgetLabel"] p{font-size:.78rem;color:#8b98a9;font-weight:600;letter-spacing:.02em}
+[data-testid="stCaptionContainer"]{margin-top:-4px}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -245,20 +247,35 @@ st.markdown(f'<div class="hero"><h1>🔍 유사 밴픽 검색기</h1>{demo_pill}
             '<div class="sub">같은 픽, 같은 맞대결, 비슷한 조합이 나온 2026 시즌 경기를 리그 구분 없이 찾습니다.</div>',
             unsafe_allow_html=True)
 
-with st.container(border=True):
-    f1, f2, f3 = st.columns([3, 3, 2.4])
-    patches = sorted(games["patch"].dropna().unique(), key=S._patch_key)
-    with f1:
-        p_lo, p_hi = st.select_slider("패치 범위", options=patches, value=(patches[0], patches[-1]))
-    with f2:
-        league_opts = sorted(games["league"].unique())
-        leagues = st.multiselect("리그", league_opts, default=league_opts)
-    with f3:
-        set_opts = sorted(games["set_no"].dropna().unique())
-        sets = st.multiselect("세트 번호", set_opts, default=set_opts,
-                              help="피어리스 방식 대회의 후반 세트만 보려면 4, 5만 선택하세요. 밴은 유사도에 넣지 않습니다.")
+patches = sorted(games["patch"].dropna().unique(), key=S._patch_key)
+league_opts = sorted(games["league"].unique())
+set_opts = sorted(int(s) for s in games["set_no"].dropna().unique())
+PRESETS = ["전체", "최근 3패치", "최신 패치", "직접 지정"]
 
-filters = dict(patch_min=p_lo, patch_max=p_hi, leagues=leagues, sets=sets)
+with st.container(border=True):
+    r1a, r1b = st.columns([5, 3], gap="large")
+    with r1a:
+        preset = st.segmented_control("패치", PRESETS, default="전체", key="patch_preset") or "전체"
+        if preset == "직접 지정":
+            d1, d2 = st.columns(2)
+            p_lo = d1.selectbox("시작", patches, index=0, key="p_lo", label_visibility="collapsed")
+            p_hi = d2.selectbox("끝", patches, index=len(patches) - 1, key="p_hi", label_visibility="collapsed")
+            if S._patch_key(p_lo) > S._patch_key(p_hi):
+                p_lo, p_hi = p_hi, p_lo  # 거꾸로 골라도 알아서 바로잡는다
+        elif preset == "최근 3패치":
+            p_lo, p_hi = patches[max(len(patches) - 3, 0)], patches[-1]
+        elif preset == "최신 패치":
+            p_lo = p_hi = patches[-1]
+        else:
+            p_lo, p_hi = patches[0], patches[-1]
+        st.caption(f"패치 {p_lo} ~ {p_hi}" if p_lo != p_hi else f"패치 {p_lo}")
+    with r1b:
+        sets = st.pills("세트 번호", set_opts, selection_mode="multi", key="sets",
+                        help="선택하지 않으면 전체입니다. 피어리스 대회의 후반 세트만 보려면 4, 5를 고르세요. 밴은 유사도에 넣지 않습니다.")
+    leagues = st.pills("리그", league_opts, selection_mode="multi", key="leagues",
+                       help="선택하지 않으면 전체 리그를 봅니다.")
+
+filters = dict(patch_min=p_lo, patch_max=p_hi, leagues=leagues or None, sets=sets or None)
 n_ok = len(S.apply_filters(games, **filters))
 st.caption(f"필터를 통과한 경기 {n_ok:,} / 전체 {len(games):,}")
 
@@ -288,9 +305,10 @@ with tab2:
 
 # ---------------------------------------------------------------- 3. 비슷한 조합
 with tab3:
-    m1, m2 = st.columns([2, 3])
-    mode = m1.radio("입력 방식", ["경기 ID로", "직접 입력"], horizontal=True)
-    top_n = m2.slider("결과 개수", 5, 30, 10)
+    m1, m2 = st.columns(2)
+    mode = m1.segmented_control("입력 방식", ["경기 ID로", "직접 입력"], default="경기 ID로",
+                                key="sim_mode") or "경기 ID로"
+    top_n = m2.segmented_control("결과 개수", [5, 10, 20, 30], default=10, key="sim_n") or 10
 
     if mode == "경기 ID로":
         gid = st.selectbox(
@@ -299,7 +317,8 @@ with tab3:
                                    f"{r.blue_team} vs {r.red_team} (세트 {r.set_no})")(
                 games.loc[games["game_id"] == g].iloc[0]),
         )
-        side_label = st.radio("비교 대상", ["양쪽 팀", "블루 팀만", "레드 팀만"], horizontal=True)
+        side_label = st.segmented_control("비교 대상", ["양쪽 팀", "블루 팀만", "레드 팀만"],
+                                          default="양쪽 팀", key="sim_side") or "양쪽 팀"
         side = {"양쪽 팀": None, "블루 팀만": "blue", "레드 팀만": "red"}[side_label]
         blue, red = S.game_picks(games, gid)
         hl = set(blue if side == "blue" else red if side == "red" else blue + red)
