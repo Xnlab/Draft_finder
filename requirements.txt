@@ -3,3 +3,4 @@ pyarrow
 streamlit
 pytest
 requests
+pillow

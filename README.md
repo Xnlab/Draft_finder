@@ -1,3 +1,43 @@
-# draft-finder
+# Draft Finder
 
-유사 밴픽 검색기. 자세한 내용은 [docs/기획서.md](docs/기획서.md) 참고. (README는 8단계에서 작성)
+경기가 끝난 뒤에 "이 밴픽이 어떤 의미였는지"를 이해시켜 주는 LoL e-스포츠 도구. 중계를 보는 팬과 칼럼 독자를 위해, 리그 구분 없이 같은 픽·맞대결·비슷한 조합이 나온 경기를 찾아 주고, 피어리스 시리즈에서 챔피언 풀이 줄어드는 과정을 보여 준다.
+
+> 이 저장소는 개발 중이다. 화면 예시는 모두 **가짜 데이터**(`mockup/`)로 만든 것이고, 실제 경기 데이터는 저장소에 없다.
+
+- 기획과 결정 과정: [`docs/기획서.md`](docs/기획서.md)
+- 기술 스택 결정: [`docs/기술스택.md`](docs/기술스택.md)
+- 칼럼 쓰는 법: [`docs/칼럼-작성법.md`](docs/칼럼-작성법.md)
+
+## 기능
+- **밴픽 찾기**: 클릭형 밴픽 보드로 챔피언을 고르면, 포지션이 달라도(플렉스) 같은 챔피언이 나온 경기를 찾는다.
+- **경기 상세 / 밴픽 쌍둥이**: 한 팀의 5명 조합이 통째로 같은 다른 경기를 찾는다.
+- **피어리스 복기**: 세트가 지날수록 소진되는 챔피언과 인기 픽 소진 정도를 본다.
+- **결과 가리기**: VOD를 나중에 보는 사람을 위해 결과와 골드차를 가린다.
+- **칼럼**: markdown 글에 근거 상자를 끼우면 데이터에서 직접 계산한 결과가 붙는다.
+
+## 데이터
+Oracle's Elixir의 시즌별 CSV를 쓴다. **원본 CSV와 전처리 결과는 저장소에 올리지 않는다**(`data/`는 `.gitignore`). 받는 곳과 이용 조건은 [Oracle's Elixir 다운로드 페이지](https://oracleselixir.com/tools/downloads)에서 확인한다. 데이터 이용 조건 확인 전에는 사이트를 공개하지 않는다.
+
+## 실행
+```bash
+pip install -r requirements.txt
+python -m pytest -q                                   # 테스트 (실제 데이터 없이 돈다)
+python -m src.build_site --demo --out mockup          # 데모 데이터로 사이트 데이터 만들기
+python -m http.server 8000 --bind 127.0.0.1 --directory mockup    # http://127.0.0.1:8000
+```
+실제 데이터로 만들려면 CSV를 `data/raw/`에 넣고 다음을 실행한다.
+```bash
+python -m src.prepare                                 # CSV -> data/games.parquet
+python -m src.build_site --out site --with-app        # site/ (저장소에 올리지 않음)
+```
+
+## 폴더
+```
+src/prepare.py      CSV -> 경기당 한 줄 표
+src/build_site.py   사이트가 읽는 JSON과 아이콘 만들기
+src/columns.py      칼럼 markdown 파서
+src/search.py       검색 로직(파이썬 구현, 테스트 기준)
+mockup/             화면(index.html, app.js)과 데모 데이터
+columns/            칼럼 원고(markdown)
+tests/              테스트
+```
