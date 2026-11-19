@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
+
+# 실제 데이터로 찍은 스크린샷은 올리지 않는다
+docs/screens/real-*

@@ -1,7 +1,8 @@
 """화면 확인용 데모 데이터 (실제 경기가 아님).
 
 실제 data/games.parquet가 없을 때 app.py가 대신 쓴다. 챔피언 이름은 실제 이름이지만
-조합·팀·승패는 모두 무작위로 만든 가짜다.
+조합·팀·승패는 모두 무작위로 만든 가짜다. 실제 2026 데이터처럼 시리즈(1~5세트)로 묶이고,
+같은 시리즈에서는 이미 쓴 챔피언을 다시 쓰지 않는 피어리스 방식이다.
 """
 from __future__ import annotations
 
@@ -39,12 +40,14 @@ TEAMS = {
     "LCS": ["C9", "TL", "FLY", "100T"],
 }
 
-PATCHES = [f"16.{i}" for i in range(1, 9)]
+PATCHES = [f"16.{i:02d}" for i in range(1, 9)]
 ALL_CHAMPS = sorted({c for pool in POOL.values() for c in pool})
+SERIES_LEN = [1, 2, 3, 4, 5]
+SERIES_P = [.22, .24, .22, .17, .15]
 
 
 def _pools():
-    """포지션별 (챔피언 목록, 선택 확률). 인기 챔피언이 반복해서 나오도록 앞쪽에 가중치를 둔다."""
+    """포지션별 (챔피언 목록, 가중치). 인기 챔피언이 반복해서 나오도록 앞쪽에 가중치를 둔다."""
     out = {}
     for pos in POSITIONS:
         names = list(POOL[pos])
@@ -52,51 +55,79 @@ def _pools():
         for name, mult in FLEX_EXTRA.get(pos, {}).items():
             names.append(name)
             w.append(0.25 * mult)
-        w = np.array(w)
-        out[pos] = (names, w / w.sum())
+        out[pos] = (names, np.array(w))
     return out
+
+
+def _game_winners(rng, k: int, a_wins_series: bool) -> list[bool]:
+    """시리즈 k세트에서 각 세트를 A팀이 이겼는지. 마지막 세트는 시리즈 승자가 이긴다."""
+    need = {1: 1, 2: 2, 3: int(rng.choice([2, 3])), 4: 3, 5: 3}[k]  # 3세트는 Bo3 2-1 또는 Bo5 3-0
+    loser_wins = {1: 0, 2: 0, 4: 1, 5: 2}.get(k, 1 if need == 2 else 0)
+    seq = [True] * (need - 1) + [False] * loser_wins
+    rng.shuffle(seq)
+    seq = seq + [True]
+    return seq if a_wins_series else [not x for x in seq]
 
 
 def make_demo_games(n: int = 400, seed: int = 7) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     pools = _pools()
-
-    rows = []
-    for i in range(n):
-        league = rng.choice(list(TEAMS))
-        blue_team, red_team = rng.choice(TEAMS[league], size=2, replace=False)
-        patch_idx = min(int(i / n * len(PATCHES)), len(PATCHES) - 1)
-        date = pd.Timestamp("2026-01-14") + pd.Timedelta(days=int(i / n * 120))
-        gd15 = int(round(rng.normal(0, 1200), -1))
-        winner = "blue" if gd15 + rng.normal(0, 1500) > 0 else "red"
-        row = dict(
-            game_id=f"DEMO-{i + 1:04d}", league=str(league),
-            date=date.strftime("%Y-%m-%d"), patch=PATCHES[patch_idx],
-            set_no=int(rng.integers(1, 6)),
-            blue_team=str(blue_team), red_team=str(red_team),
-            winner=winner, gd15=gd15, data_complete=True,
-        )
-        used: set[str] = set()  # 한 경기 안에서는 같은 챔피언이 두 번 나오지 않는다
-        for side in ("blue", "red"):
-            for pos in POSITIONS:
-                names, p = pools[pos]
-                champ = str(rng.choice(names, p=p))
-                while champ in used:
-                    champ = str(rng.choice(names, p=p))
-                used.add(champ)
-                row[f"{side}_{pos}"] = champ
-        # 밴 5개씩 (뽑힌 챔피언은 제외)
-        bans = rng.choice([c for c in ALL_CHAMPS if c not in used], size=10, replace=False)
-        row["blue_bans"], row["red_bans"] = [str(b) for b in bans[:5]], [str(b) for b in bans[5:]]
-        # 경기 시간, 10분 골드차, 첫 오브젝트 (이긴 쪽이 가져갔을 확률이 조금 높다)
-        row["length_min"] = int(np.clip(round(rng.normal(32, 5)), 22, 48))
-        row["gd10"] = int(round(gd15 * 0.55 + rng.normal(0, 250), -1))
-        loser = "red" if winner == "blue" else "blue"
-        for key in ("first_dragon", "first_herald", "first_tower"):
-            row[key] = winner if rng.random() < 0.6 else loser
-        # LPL 일부 경기는 픽 하나가 비어 있는 것처럼 만든다
-        if league == "LPL" and rng.random() < 0.15:
-            row[f"{rng.choice(['blue', 'red'])}_{rng.choice(POSITIONS)}"] = None
-            row["data_complete"] = False
-        rows.append(row)
+    rows, sid = [], 0
+    while len(rows) < n:
+        league = str(rng.choice(list(TEAMS)))
+        team_a, team_b = (str(x) for x in rng.choice(TEAMS[league], size=2, replace=False))
+        k = int(rng.choice(SERIES_LEN, p=SERIES_P))
+        progress = len(rows) / n
+        patch = PATCHES[min(int(progress * len(PATCHES)), len(PATCHES) - 1)]
+        day = pd.Timestamp("2026-01-14") + pd.Timedelta(days=int(progress * 120))
+        winners = _game_winners(rng, k, bool(rng.random() < 0.5))
+        spent: set[str] = set()  # 피어리스: 이 시리즈에서 이미 쓴 챔피언
+        a_blue = bool(rng.random() < 0.5)
+        for s in range(1, k + 1):
+            a_won = winners[s - 1]
+            margin = abs(rng.normal(900, 900))
+            gd_a = margin if rng.random() < 0.72 else -margin * 0.5
+            gd_a = gd_a if a_won else -abs(gd_a) if gd_a > 0 else abs(gd_a)
+            blue_team, red_team = (team_a, team_b) if a_blue else (team_b, team_a)
+            gd15 = int(round(gd_a if a_blue else -gd_a, -1))
+            winner = "blue" if (a_won == a_blue) else "red"
+            when = day + pd.Timedelta(hours=17 + 2 * (s - 1))
+            row = dict(
+                game_id=f"DEMO-{len(rows) + 1:04d}", league=league, year=2026, split="Demo", playoffs=k >= 3,
+                datetime=when.strftime("%Y-%m-%d %H:%M:%S"), date=when.strftime("%Y-%m-%d"), patch=patch,
+                set_no=s, blue_team=blue_team, red_team=red_team, winner=winner,
+                gd15=gd15, data_complete=True, series_id=sid, series_games=k, series_ok=True,
+            )
+            used = set(spent)
+            for side in ("blue", "red"):
+                for pos in POSITIONS:
+                    names, w = pools[pos]
+                    ok = [i for i, c in enumerate(names) if c not in used]
+                    if ok:
+                        p = w[ok] / w[ok].sum()
+                        champ = names[int(rng.choice(ok, p=p))]
+                    else:  # 포지션 풀이 바닥나면 아무 챔피언이나 (피어리스 후반의 억지 픽)
+                        champ = str(rng.choice([c for c in ALL_CHAMPS if c not in used]))
+                    used.add(champ)
+                    row[f"{side}_{pos}"] = champ
+                    row[f"{side}_{pos}_player"] = None
+            spent |= {row[f"{s_}_{p}"] for s_ in ("blue", "red") for p in POSITIONS}
+            # 밴 5개씩 (뽑힌 챔피언은 제외, 피어리스에서도 밴은 소진되지 않는다)
+            bans = rng.choice([c for c in ALL_CHAMPS if c not in used], size=10, replace=False)
+            row["blue_bans"], row["red_bans"] = [str(b) for b in bans[:5]], [str(b) for b in bans[5:]]
+            row["length_sec"] = int(np.clip(round(rng.normal(32, 5)), 22, 48)) * 60
+            row["gd10"] = int(round(gd15 * 0.55 + rng.normal(0, 250), -1))
+            row["gd20"] = int(round(gd15 * 1.4 + rng.normal(0, 600), -1))
+            row["gd25"] = int(round(gd15 * 1.8 + rng.normal(0, 900), -1))
+            loser = "red" if winner == "blue" else "blue"
+            for key in ("first_dragon", "first_herald", "first_baron", "first_tower"):
+                row[key] = winner if rng.random() < 0.6 else loser
+            row["first_pick"] = "blue"
+            # LPL 일부 경기는 픽 하나가 비어 있는 것처럼 만든다
+            if league == "LPL" and rng.random() < 0.12:
+                row[f"{rng.choice(['blue', 'red'])}_{rng.choice(POSITIONS)}"] = None
+                row["data_complete"] = False
+            rows.append(row)
+            a_blue = not a_blue  # 세트마다 진영이 바뀐다
+        sid += 1
     return pd.DataFrame(rows)
