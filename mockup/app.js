@@ -253,16 +253,29 @@ function renderResults(){
 }
 
 /* ---------- 경기 상세 + 밴픽 쌍둥이 ---------- */
+const inter=(a,b)=>{let n=0;for(const x of a)if(b.has(x))n++;return n};
+const byFit=(a,b)=>b.m-a.m||(a.o.d<b.o.d?1:a.o.d>b.o.d?-1:0);
+/* 경기 전체(10명) 쌍둥이: 2026 데이터에서 8/10 이상은 1.6%뿐이라 7/10 이상만 "드문 경기"로 다룬다 */
 function twins(g){
-  const inter=(a,b)=>{let n=0;for(const x of a)if(b.has(x))n++;return n};
   const res=[];
   for(const o of G){
     if(o===g)continue;
     const m=Math.max(inter(g._b,o._b)+inter(g._r,o._r),inter(g._b,o._r)+inter(g._r,o._b));
-    if(m>=5)res.push({o,m});
+    if(m>=7)res.push({o,m});
   }
-  res.sort((a,b)=>b.m-a.m||(a.o.d<b.o.d?1:a.o.d>b.o.d?-1:0));
+  res.sort(byFit);
   return {top:res.slice(0,3),total:res.length};
+}
+/* 팀 조합 쌍둥이: 같은 5명이 나온 다른 경기 (실제 데이터에서 17.7%의 경기가 해당), 없으면 5명 중 4명 */
+function teamTwins(g,code){
+  const s=g['_'+code],res=[];
+  for(const o of G){
+    if(o===g)continue;
+    const m=Math.max(inter(s,o._b),inter(s,o._r));
+    if(m>=4)res.push({o,m});
+  }
+  res.sort(byFit);
+  return {exact:res.filter(x=>x.m===5),near:res.filter(x=>x.m===4)};
 }
 function similarCount(g,code){
   const s=g['_'+code];let n=0;
@@ -297,7 +310,15 @@ function openDetail(id){
   const flexList=[];
   for(const code of['b','r'])g[code].forEach((c,i)=>{if(c>=0&&ROLES[i]!==CH[c].roles[0])flexList.push(`${CH[c].ko}(${ROLE_KO[ROLES[i]]})`)});
   const tw=twins(g);
-  const twHtml=tw.top.length?`<div class="twins">${tw.top.map(({o,m})=>`<button class="twin" type="button" data-twin="${o.id}"><b>${m}/10</b><span>${esc(o.lg)} · ${fmtDate(o.d)} · 패치 ${esc(o.p)}</span><span class="muted">${esc(o.bt)} vs ${esc(o.rt)} · ${o.s}세트</span></button>`).join('')}</div><p class="rel" style="margin:8px 0 0">10명 중 5명 이상 겹치는 경기는 모두 ${tw.total}개예요. (블루·레드가 바뀐 경기도 포함)</p>`:`<p class="rel" style="margin:0">10명 중 5명 이상 겹치는 다른 경기가 없어요. 이번 시즌에 드문 조합이에요.</p>`;
+  const item=(o,label)=>`<button class="twin" type="button" data-twin="${o.id}"><b>${label}</b><span>${esc(o.lg)} · ${fmtDate(o.d)} · 패치 ${esc(o.p)}</span><span class="muted">${esc(o.bt)} vs ${esc(o.rt)} · ${o.s}세트</span></button>`;
+  const teamBlock=code=>{
+    const t=teamTwins(g,code),nm=code==='b'?g.bt:g.rt,side=code==='b'?'블루':'레드';
+    if(t.exact.length)return `<h6 class="th2">${esc(nm)} (${side}) 조합과 같은 5명이 나온 다른 경기 <b>${t.exact.length}개</b></h6><div class="twins">${t.exact.slice(0,3).map(x=>item(x.o,'5/5')).join('')}</div>`;
+    if(t.near.length)return `<h6 class="th2">${esc(nm)} (${side}) 조합: 같은 5명은 없고, 5명 중 4명이 같은 경기 <b>${t.near.length}개</b></h6><div class="twins">${t.near.slice(0,2).map(x=>item(x.o,'4/5')).join('')}</div>`;
+    return `<h6 class="th2">${esc(nm)} (${side}) 조합과 비슷한 경기가 거의 없어요</h6>`;
+  };
+  const rareHtml=tw.top.length?`<div class="callout"><b>드문 경기예요</b> 양 팀 10명 중 ${tw.top[0].m}명이 같은 다른 경기가 ${tw.total}개 있어요. 올해 이런 경기는 아주 드물어요.</div><div class="twins">${tw.top.map(({o,m})=>item(o,m+'/10')).join('')}</div>`:'';
+  const twHtml=rareHtml+teamBlock('b')+teamBlock('r');
   const banner=veil
     ?`<div class="dwin veil">결과 가림 중<small>경기 결과와 흐름은 가려 뒀어요</small><button class="btn" type="button" data-reveal="${id}" style="margin-left:auto">결과 보기</button></div>`
     :`<div class="dwin">${esc(wName)} 승리<small>${g.len!=null?g.len+'분 경기 · ':''}${g.w==='b'?'블루':'레드'} 진영</small></div>`;
