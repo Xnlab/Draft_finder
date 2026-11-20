@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>Draft Finder 목업</title>
 <style>
@@ -469,6 +470,48 @@ a.chip{text-decoration:none;display:inline-block}
 @media (prefers-reduced-motion:no-preference){
   .slot,.chip,.again{transition:border-color .12s,background .12s,color .12s}
 }
+/* 팀 지표 / 선수 표 / 챔피언 순위 */
+.mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+.mpanel{background:var(--surface-2);border-radius:12px;padding:12px 14px;min-width:0}
+.mpanel h5{margin:0 0 4px;font-size:.8rem;color:var(--muted);font-weight:800}
+.mrow{display:grid;grid-template-columns:minmax(0,1fr) auto 84px;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--line);font-size:.88rem}
+.mpanel h5+.mrow{border-top:0}
+.mv{font-variant-numeric:tabular-nums;text-align:right;font-size:.95rem}
+.mr{font-size:.74rem;font-weight:800;text-align:right;color:var(--muted);line-height:1.25}
+.mr small{display:block;font-weight:500;color:var(--faint);font-size:.7rem}
+.mr.good{color:var(--win)}.mr.bad{color:var(--loss)}
+.srow{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px 0;font-size:.85rem}
+.sl{font-weight:700;font-size:.8rem;display:flex;align-items:center;gap:6px}
+.sl.bl{color:var(--blue)}.sl.rd{color:var(--red)}
+.sbar{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
+.sbar i{display:block;height:100%;border-radius:99px}
+.sbar i.bl{background:var(--blue)}.sbar i.rd{background:var(--red)}
+.sv{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+.sv small{color:var(--muted);font-weight:500;margin-left:4px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none}
+.bnrow{display:grid;grid-template-columns:40px minmax(0,1fr);gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.mpanel h5+.bnrow{border-top:0}
+.bi.sm{gap:10px}
+.tscroll{overflow-x:auto;margin-top:16px}
+.ptable{width:100%;border-collapse:collapse;font-size:.86rem}
+.ptable th{font-size:.74rem;color:var(--muted);text-align:left;font-weight:700;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.ptable td{padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:middle;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ptable tr:last-child td{border-bottom:0}
+.ptable .num{text-align:right}
+.ptable .rk{color:var(--faint);font-weight:700;width:28px}
+.chs{display:flex;gap:8px}
+.rtag{font-size:.76rem;font-weight:800}
+.cname{display:flex;align-items:center;gap:10px;border:0;background:none;padding:0;text-align:left;font-weight:700}
+.cname img{border-radius:8px}
+.cname:hover span{color:var(--accent);text-decoration:underline}
+.ctwo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.ctab{padding:16px 18px;min-width:0;overflow-x:auto}
+.ctab h2{margin:0 0 8px;font-size:1rem}
+.sel{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:99px;padding:6px 12px;font:inherit;font-size:.85rem}
+.rtabs{flex-wrap:wrap}
+.rtabs .dot{margin-right:5px}
+@media (max-width:860px){.ctwo,.mgrid{grid-template-columns:1fr}}
+@media (max-width:520px){.ctab{padding:14px 10px}.ptable td,.ptable th{padding:7px 4px}.cname{gap:7px}.cname img{width:28px;height:28px}}
 </style>
 
 <div class="wrap">
@@ -476,6 +519,7 @@ a.chip{text-decoration:none;display:inline-block}
     <a class="logo" href="#teams"><i></i>Draft Finder</a>
     <nav class="nav" aria-label="메뉴">
       <a href="#teams" id="nav-teams">내 팀</a>
+      <a href="#champs" id="nav-champs">챔피언</a>
       <a href="#search" id="nav-search">밴픽 찾기</a>
       <a href="#series" id="nav-series">피어리스 복기</a>
       <a href="#columns" id="nav-columns">칼럼</a>
@@ -490,6 +534,10 @@ a.chip{text-decoration:none;display:inline-block}
 
   <main id="view-team" hidden>
     <div id="team-box"></div>
+  </main>
+
+  <main id="view-champs" hidden>
+    <div id="champs-box"></div>
   </main>
 
   <main id="view-search" hidden>

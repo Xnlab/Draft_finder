@@ -25,6 +25,19 @@ NEEDED = (
      "firsttower", "golddiffat10", "golddiffat15", "golddiffat20", "golddiffat25"]
     + [f"ban{i}" for i in range(1, 6)] + [f"pick{i}" for i in range(1, 6)]
 )
+# 팀 지표(경기마다 팀 줄의 값). 키는 사이트 JSON에서 쓰는 짧은 이름이다.
+TEAM_STATS = {
+    "k": "teamkills", "d": "teamdeaths", "fb": "firstblood", "drg": "dragons",
+    "inf": "infernals", "mtn": "mountains", "cld": "clouds", "ocn": "oceans", "chm": "chemtechs", "hex": "hextechs",
+    "eld": "elders", "her": "heralds", "grub": "void_grubs", "bar": "barons", "tow": "towers", "plt": "turretplates",
+    "gold": "totalgold", "dpm": "dpm", "wpm": "wpm", "wcpm": "wcpm", "vspm": "vspm", "csd15": "csdiffat15",
+}
+# 선수 지표(경기마다 선수 줄의 값). 팀 CS/분은 선수 cspm의 합으로 만든다(팀 줄의 cspm은 7% 비어 있다).
+PLAYER_STATS = {
+    "k": "kills", "d": "deaths", "a": "assists", "dmg": "damageshare", "gsh": "earnedgoldshare",
+    "vspm": "vspm", "cspm": "cspm", "dpm": "dpm", "csd15": "csdiffat15",
+}
+NEEDED += sorted((set(TEAM_STATS.values()) | set(PLAYER_STATS.values())) - set(NEEDED))
 SERIES_GAP_HOURS = 36  # 같은 시리즈로 볼 세트 사이의 최대 간격
 
 
@@ -82,6 +95,23 @@ def assign_series(g: pd.DataFrame) -> pd.DataFrame:
     return g
 
 
+def _stat_columns(blue: pd.DataFrame, red: pd.DataFrame, players: pd.DataFrame, gid) -> pd.DataFrame:
+    """팀 지표(blue_t_k ...)와 선수 지표(blue_mid_dmg ...) 열. 빈 값은 NaN으로 둔다."""
+    cols = {}
+    for side, t in (("blue", blue), ("red", red)):
+        for key, col in TEAM_STATS.items():
+            cols[f"{side}_t_{key}"] = pd.to_numeric(t[col], errors="coerce")
+    for key, col in PLAYER_STATS.items():
+        v = players.pivot(index="gameid", columns=["side", "position"], values=col).loc[gid]
+        for side in ("blue", "red"):
+            for pos in POSITIONS:
+                cols[f"{side}_{pos}_{key}"] = pd.to_numeric(v[(side, pos)], errors="coerce")
+    out = pd.DataFrame(cols, index=gid)
+    for side in ("blue", "red"):
+        out[f"{side}_t_cspm"] = out[[f"{side}_{p}_cspm" for p in POSITIONS]].sum(axis=1, min_count=5)
+    return out
+
+
 def build_games(raw: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """경기 하나당 한 줄 표와, 걸러진 경기 수 같은 보고를 돌려준다."""
     raw = raw.copy()
@@ -135,6 +165,7 @@ def build_games(raw: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     for k, col in (("first_dragon", "firstdragon"), ("first_herald", "firstherald"),
                    ("first_baron", "firstbaron"), ("first_tower", "firsttower")):
         g[k] = _first_side(blue[col], red[col])
+    g = pd.concat([g, _stat_columns(blue, red, players, gid)], axis=1)
     picks_ok = g[[f"{s}_{p}" for s in ("blue", "red") for p in POSITIONS]].notna().all(axis=1)
     g["data_complete"] = (blue["datacompleteness"] == "complete") & picks_ok
     g["_blue_key"] = blue["teamid"].fillna(blue["teamname"])

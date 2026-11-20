@@ -143,3 +143,18 @@ def test_load_raw_rejects_files_missing_columns(tmp_path):
     pd.DataFrame({"gameid": ["g1"]}).to_csv(f, index=False)
     with pytest.raises(ValueError, match="필요한 열"):
         P.load_raw(f)
+
+
+def test_team_and_player_stats_follow_side_and_position():
+    raw = make_raw(raw_game("g1", "2026-03-01 10:00:00", 1, "T1", "GEN", A, B))
+    team = raw["position"] == "team"
+    raw.loc[team & (raw["side"] == "Blue"), "teamkills"] = 18
+    raw.loc[team & (raw["side"] == "Red"), "teamkills"] = 7
+    for i, pos in enumerate(POS):
+        raw.loc[(raw["position"] == pos) & (raw["side"] == "Red"), "damageshare"] = 0.1 + i / 100
+        raw.loc[(raw["position"] == pos), "cspm"] = 8.0
+    g = P.build_games(raw)[0].iloc[0]
+    assert (g["blue_t_k"], g["red_t_k"]) == (18, 7)
+    assert g["red_mid_dmg"] == pytest.approx(0.12)
+    assert g["blue_t_cspm"] == pytest.approx(40.0)          # 팀 CS/분 = 선수 5명 합
+    assert pd.isna(g["blue_t_vspm"])                        # 빈 값은 0이 아니라 NaN

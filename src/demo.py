@@ -70,6 +70,53 @@ def _game_winners(rng, k: int, a_wins_series: bool) -> list[bool]:
     return seq if a_wins_series else [not x for x in seq]
 
 
+DRAKES = ["inf", "mtn", "cld", "ocn", "chm", "hex"]
+
+
+def _fake_stats(rng, row: dict, winner: str) -> None:
+    """팀·선수 지표 가짜 값 (화면 확인용). 이긴 팀이 대체로 더 많이 가져가게만 맞춘다."""
+    mins = row["length_sec"] / 60
+    share = {"top": .22, "jng": .17, "mid": .26, "bot": .28, "sup": .07}
+    gshare = {"top": .22, "jng": .19, "mid": .23, "bot": .25, "sup": .11}
+    kills = {}
+    for side in ("blue", "red"):
+        w = side == winner
+        kills[side] = int(max(0, rng.normal(19 if w else 10, 5)))
+    for side in ("blue", "red"):
+        w, other = side == winner, ("red" if side == "blue" else "blue")
+        t = lambda k, v: row.__setitem__(f"{side}_t_{k}", v)  # noqa: E731
+        t("k", kills[side]); t("d", kills[other])
+        t("fb", int(row["first_tower"] == side))
+        drg = int(rng.integers(2, 5) if w else rng.integers(0, 3))
+        t("drg", drg)
+        types = rng.choice(DRAKES, size=drg)
+        for dk in DRAKES:
+            t(dk, int((types == dk).sum()))
+        t("eld", int(w and rng.random() < .15))
+        t("her", int(rng.random() < (.6 if w else .4)))
+        t("grub", int(rng.integers(2, 4) if w else rng.integers(0, 3)))
+        t("bar", int(rng.integers(1, 3) if w else rng.random() < .25))
+        t("tow", int(rng.integers(8, 12) if w else rng.integers(1, 6)))
+        t("plt", int(rng.integers(10, 25)))
+        t("gold", round(mins * rng.normal(2000 if w else 1750, 80)))
+        t("dpm", round(rng.normal(2600 if w else 2200, 300)))
+        t("wpm", round(rng.normal(3.8, .3), 2)); t("wcpm", round(rng.normal(1.7, .25), 2))
+        t("vspm", round(rng.normal(10, .8), 2))
+        t("csd15", int(rng.normal(25 if w else -25, 40)))
+        tk = max(kills[side], 1)
+        csum = 0.0
+        for pos in POSITIONS:
+            p = lambda k, v: row.__setitem__(f"{side}_{pos}_{k}", v)  # noqa: E731
+            p("k", int(tk * share[pos] * rng.uniform(.4, 1.6))); p("d", int(rng.integers(0, 6)))
+            p("a", int(tk * rng.uniform(.3, .8)))
+            p("dmg", round(share[pos] * rng.uniform(.8, 1.2), 3)); p("gsh", round(gshare[pos] * rng.uniform(.9, 1.1), 3))
+            p("vspm", round(rng.normal(3.5 if pos == "sup" else 1.2, .2), 2))
+            cs = 0.9 if pos == "sup" else 6 if pos == "jng" else 8.5
+            p("cspm", round(rng.normal(cs, .5), 1)); csum += row[f"{side}_{pos}_cspm"]
+            p("dpm", round(rng.normal(800 * share[pos] / .2, 120))); p("csd15", int(rng.normal(0, 12)))
+        t("cspm", round(csum, 1))
+
+
 def make_demo_games(n: int = 400, seed: int = 7) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     pools = _pools()
@@ -124,6 +171,7 @@ def make_demo_games(n: int = 400, seed: int = 7) -> pd.DataFrame:
             for key in ("first_dragon", "first_herald", "first_baron", "first_tower"):
                 row[key] = winner if rng.random() < 0.6 else loser
             row["first_pick"] = "blue"
+            _fake_stats(rng, row, winner)
             # LPL 일부 경기는 픽 하나가 비어 있는 것처럼 만든다
             if league == "LPL" and rng.random() < 0.12:
                 row[f"{rng.choice(['blue', 'red'])}_{rng.choice(POSITIONS)}"] = None

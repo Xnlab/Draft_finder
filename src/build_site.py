@@ -101,6 +101,39 @@ def game_records(df: pd.DataFrame, idx: dict) -> list[dict]:
     return rows
 
 
+# stats.json의 열 순서와 반올림 자릿수 (None = 정수). 화면은 열 이름으로 찾아 쓴다.
+TEAM_FIELDS = [("k", None), ("d", None), ("fb", None), ("drg", None), ("inf", None), ("mtn", None), ("cld", None),
+               ("ocn", None), ("chm", None), ("hex", None), ("eld", None), ("her", None), ("grub", None),
+               ("bar", None), ("tow", None), ("plt", None), ("gpm", None), ("dpm", None), ("wpm", 2),
+               ("wcpm", 2), ("vspm", 2), ("cspm", 1), ("csd15", None)]
+PLAYER_FIELDS = [("k", None), ("d", None), ("a", None), ("dmg", 3), ("gsh", 3), ("vspm", 2), ("cspm", 1),
+                 ("dpm", None), ("csd15", None)]
+
+
+def _r(x, nd):
+    if x is None or pd.isna(x):
+        return None
+    return int(round(float(x))) if nd is None else round(float(x), nd)
+
+
+def stat_rows(df: pd.DataFrame) -> list | None:
+    """경기마다 [블루 팀, 레드 팀, 블루 선수 5명, 레드 선수 5명] 지표. 지표 열이 없는 표면 None."""
+    if "blue_t_k" not in df.columns:
+        return None
+    rows = []
+    for d in df.to_dict("records"):
+        mins = d["length_sec"] / 60 if d.get("length_sec") and not pd.isna(d["length_sec"]) else None
+        row = []
+        for side in ("blue", "red"):
+            vals = dict(d)
+            vals[f"{side}_t_gpm"] = d[f"{side}_t_gold"] / mins if mins and not pd.isna(d[f"{side}_t_gold"]) else None
+            row.append([_r(vals.get(f"{side}_t_{k}"), nd) for k, nd in TEAM_FIELDS])
+        for side in ("blue", "red"):
+            row.append([[_r(d.get(f"{side}_{p}_{k}"), nd) for k, nd in PLAYER_FIELDS] for p in POS])
+        rows.append(row)
+    return rows
+
+
 def build(df: pd.DataFrame, out: Path, demo: bool, columns_dir: Path | None = None, ko_by_en: dict | None = None,
           icon_files: dict | None = None, version: str = "", download_icons: bool = True) -> dict:
     out.mkdir(parents=True, exist_ok=True)
@@ -111,6 +144,11 @@ def build(df: pd.DataFrame, out: Path, demo: bool, columns_dir: Path | None = No
     # 경기 하나가 한 줄인 JSON 배열 (사람이 diff로 보기 쉽고, 브라우저는 한 번에 읽는다)
     (out / "games.json").write_text(
         "[\n" + ",\n".join(json.dumps(x, ensure_ascii=False, separators=(",", ":")) for x in games) + "\n]", encoding="utf-8")
+    st = stat_rows(df)
+    if st is not None:   # 팀·선수 지표: 팀 페이지와 챔피언 통계를 열 때만 읽는다 (첫 화면을 가볍게)
+        (out / "stats.json").write_text(json.dumps(
+            {"team": [k for k, _ in TEAM_FIELDS], "player": [k for k, _ in PLAYER_FIELDS], "rows": st},
+            ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     cols = load_columns(columns_dir) if columns_dir and Path(columns_dir).exists() else []
     (out / "columns.json").write_text(json.dumps(cols, ensure_ascii=False), encoding="utf-8")
     (out / "meta.json").write_text(json.dumps({"demo": demo}), encoding="utf-8")

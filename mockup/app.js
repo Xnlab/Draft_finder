@@ -10,7 +10,7 @@ let TEAMS=[],TEAMIDX={},LDIST={};
 const S={blue:[-1,-1,-1,-1,-1],red:[-1,-1,-1,-1,-1],patch:'all',leagues:new Set(),sets:'all',pos:'any',flexOnly:false,
   tab:'full',shown:12,spoiler:false,revealed:new Set(),statsRevealed:false,detailId:null,
   series:null,sSet:0,sShown:1,sLeague:'all',sMore:24,sRevealed:new Set(),sEnd:false,
-  teams:[],tq:'',tlg:'all',fMore:12,tMore:12,persp:null,team:null,myTeam:null,changing:false};
+  teams:[],tq:'',tlg:'all',fMore:12,tMore:12,persp:null,team:null,myTeam:null,changing:false,cl:'all',cpt:'all',cr:'all',cn:20};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtGd=v=>v==null?'-':(v>0?'+':v<0?'−':'')+Math.abs(Math.round(v)).toLocaleString('ko-KR');
@@ -787,6 +787,15 @@ function banStats(t){
   const top=(o,n)=>Object.entries(o).sort((a,b)=>b[1]-a[1]).slice(0,n);
   return{own:top(own,8),against:top(against,8),sig:sig.map(o=>top(o,1)[0])};
 }
+/* 밴: 전체/블루/레드 진영별로 많이 밴한(또는 밴된) 챔피언 6개와 그 경기 비율 */
+function banPanel(t,kind){
+  const row=(label,cls,games)=>{
+    const c={};for(const{g,code}of games){const side=kind==='own'?code:opp(code);for(const x of g[side==='b'?'bb':'rb'])c[x]=(c[x]||0)+1}
+    const top=Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    return `<div class="bnrow"><span class="sl ${cls}">${label}</span><div class="bi sm">${top.map(([x,n])=>`<span class="pc" title="${esc(CH[+x].ko)} ${n}회 / ${games.length}경기"><img src="${CH[+x].icon}" alt="${esc(CH[+x].ko)}" width="32" height="32"><i>${Math.round(n/games.length*100)}%</i></span>`).join('')}</div></div>`;
+  };
+  return `<div class="mpanel"><h5>${kind==='own'?'이 팀이 밴한 챔피언':'이 팀 상대로 밴된 챔피언'}</h5>${row('전체','',t.games)}${row('블루','bl',t.games.filter(x=>x.code==='b'))}${row('레드','rd',t.games.filter(x=>x.code==='r'))}</div>`;
+}
 const iconRow=list=>`<div class="bi">${list.map(([c,n])=>`<span class="pc" title="${esc(CH[+c].ko)} ${n}회"><img src="${CH[+c].icon}" alt="${esc(CH[+c].ko)}" width="36" height="36"><i>${n}</i></span>`).join('')}</div>`;
 
 function teamHero(t,mine){
@@ -813,16 +822,163 @@ function teamFlow(t){
 /* 팀 홈(마이 팀) / 팀 페이지(다른 팀) 공용 본문 */
 function teamBody(t,mine){
   const ros=roster(t),bs=banStats(t),recent=t.games.slice().reverse();
-  const rosterHtml=ros.some(Boolean)?`<section class="card story"><h2 style="font-size:1.1rem">선수 <span class="muted" style="font-size:.8rem;font-weight:500">최근 40경기 기준 주전과 챔피언</span></h2><div class="pgrid">${ros.map(p=>p?playerCard(p,t):'').join('')}</div><p class="rel" style="margin:12px 0 0">선수 사진은 쓰지 않아요. 권리를 확인한 사진이 생기면 이 자리에 넣을 수 있어요.</p></section>`:'';
+  const rosterHtml=ros.some(Boolean)?`<section class="card story"><h2 style="font-size:1.1rem">선수 <span class="muted" style="font-size:.8rem;font-weight:500">최근 40경기 기준 주전과 챔피언</span></h2><div class="pgrid">${ros.map(p=>p?playerCard(p,t):'').join('')}</div>${playerTable(t,ros)}<p class="rel" style="margin:12px 0 0">선수 사진은 쓰지 않아요. 권리를 확인한 사진이 생기면 이 자리에 넣을 수 있어요.</p></section>`:'';
   const sigRow=`<div class="siglist">${bs.sig.map((s,i)=>s?`<div class="sigp"><span class="rl" style="color:${ROLE_COLORS[ROLES[i]]}">${ROLE_KO[ROLES[i]]}</span><span class="pc" title="${esc(CH[+s[0]].ko)} ${s[1]}회"><img src="${CH[+s[0]].icon}" alt="${esc(CH[+s[0]].ko)}" width="40" height="40"><i>${s[1]}</i></span></div>`:'').join('')}</div>`;
   const picksHtml=`<section class="card story"><h2 style="font-size:1.1rem">밴픽</h2>
     <h5 class="sub5" style="margin-top:12px">포지션별로 가장 많이 쓴 챔피언</h5>${sigRow}
-    <h5 class="sub5">이 팀이 자주 밴한 챔피언</h5>${iconRow(bs.own)}
-    <h5 class="sub5">이 팀을 상대로 자주 밴된 챔피언</h5>${iconRow(bs.against)}</section>`;
+    <div class="mgrid">${banPanel(t,'own')}${banPanel(t,'against')}</div></section>`;
   const feed=`<div class="section-title"><h2>최근 경기</h2></div><div class="games one">${recent.slice(0,S.tMore).map(x=>tcardHtml(x.g,x.code)).join('')}</div>${recent.length>S.tMore?`<button class="more" type="button" data-tmore>경기 더 보기 (${recent.length-S.tMore}개 남음)</button>`:''}`;
   const rel=COLUMNS.map((c,i)=>({c,i})).filter(x=>(x.c.teams||[]).includes(t.name));
   const colHtml=rel.length?`<div class="section-title"><h2>이 팀 이야기</h2></div><div class="cols">${rel.map(x=>colCard(x.c,x.i)).join('')}</div>`:'';
-  return `${teamHero(t,mine)}${rosterHtml}${feed}${picksHtml}<section class="card story" style="margin-top:16px"><h2 style="font-size:1.1rem">이 팀의 경기 흐름</h2>${teamFlow(t)}</section>${colHtml}`;
+  return `${teamHero(t,mine)}${rosterHtml}${teamStatsHtml(t)}${feed}${picksHtml}<section class="card story" style="margin-top:16px"><h2 style="font-size:1.1rem">이 팀의 경기 흐름</h2>${teamFlow(t)}</section>${colHtml}`;
+}
+
+/* ---------- 팀·선수 지표 (stats.json): 팀 페이지와 챔피언 순위를 열 때만 읽는다 ---------- */
+let ST=null,STP=null;const TF={},PF={},LMET={};
+function loadStats(){
+  if(!STP)STP=fetch('stats.json').then(r=>{if(!r.ok)throw new Error('no stats');return r.json()}).then(j=>{
+    if(j.rows.length!==G.length)throw new Error('stats.json과 games.json의 경기 수가 달라요');
+    j.team.forEach((k,i)=>TF[k]=i);j.player.forEach((k,i)=>PF[k]=i);
+    j.rows.forEach((row,i)=>{G[i]._st=row});ST=j;
+  }).catch(e=>{console.warn(e);ST=false}).then(()=>{
+    if(!$('#view-team').hidden)renderTeam(S.team);
+    if(!$('#view-teams').hidden)renderTeams();
+  });
+  return STP;
+}
+const avg=a=>{let s=0,n=0;for(const x of a)if(x!=null&&!Number.isNaN(x)){s+=x;n++}return n?s/n:null};
+const tSt=(g,code,k)=>g._st?g._st[code==='b'?0:1][TF[k]]:null;
+const opp=c=>c==='b'?'r':'b';
+const DRAKES=[['inf','화염','#e8642c'],['mtn','대지','#a0784f'],['cld','바람','#8fc3e6'],['ocn','바다','#3fb8a6'],['chm','화학공학','#9bbf3a'],['hex','마법공학','#3a8fb8'],['eld','장로','#a58fe0']];
+function teamMetrics(t){
+  const gs=t.games.filter(x=>x.g._st);if(gs.length<3)return null;
+  const T=k=>gs.map(x=>tSt(x.g,x.code,k)),sumT=(k,c)=>gs.reduce((s,x)=>s+(tSt(x.g,c?opp(x.code):x.code,k)||0),0);
+  const share=k=>{const a=sumT(k),b=sumT(k,1);return a+b?a/(a+b)*100:null};
+  const gd=x=>x.g.gd==null?null:(x.code==='b'?x.g.gd:-x.g.gd);
+  const ah=gs.filter(x=>gd(x)>0),ft=gs.filter(x=>x.g.ft);
+  const k=sumT('k'),d=sumT('d');
+  return{n:gs.length,gpm:avg(T('gpm')),gd15:avg(gs.map(gd)),ahead:ah.length>=3?ah.filter(x=>x.g.w===x.code).length/ah.length*100:null,
+    cspm:avg(T('cspm')),csd15:avg(T('csd15')),ft:ft.length?ft.filter(x=>x.g.ft===x.code).length/ft.length*100:null,
+    dpm:avg(T('dpm')),fb:avg(T('fb'))*100,k:avg(T('k')),d:avg(T('d')),kd:d?k/d:null,
+    plt:avg(T('plt')),drg:avg(T('drg')),drgS:share('drg'),grub:avg(T('grub')),her:avg(T('her')),bar:avg(T('bar')),barS:share('bar'),
+    vspm:avg(T('vspm')),wpm:avg(T('wpm')),wcpm:avg(T('wcpm'))};
+}
+const f0=v=>Math.round(v).toLocaleString('ko-KR'),f1=v=>v.toFixed(1),f2=v=>v.toFixed(2),fp=v=>Math.round(v)+'%',fs1=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1);
+/* [묶음, 키, 이름, 표시, 높을수록 좋은가(1)/낮을수록(-1), 결과를 알려 주는가] */
+const MDEF=[
+  ['경제','gpm','분당 골드',f0,1],['경제','gd15','15분 골드 차이',fmtGd,1],['경제','ahead','15분에 앞섰을 때 승률',fp,1,1],
+  ['경제','cspm','분당 CS',f1,1],['경제','csd15','15분 CS 차이',fs1,1],['경제','ft','첫 포탑',fp,1],
+  ['교전','dpm','분당 피해량',f0,1],['교전','fb','첫 킬',fp,1],['교전','k','경기당 킬',f1,1],['교전','d','경기당 데스',f1,-1],['교전','kd','킬 ÷ 데스',f2,1],
+  ['오브젝트','plt','경기당 포탑 방패',f1,1],['오브젝트','drgS','용 획득 비율',fp,1],['오브젝트','grub','경기당 공허 유충',f1,1],['오브젝트','her','경기당 전령',f2,1],['오브젝트','barS','바론 획득 비율',fp,1],
+  ['시야','vspm','분당 시야 점수',f2,1],['시야','wpm','분당 와드 설치',f2,1],['시야','wcpm','분당 와드 제거',f2,1],
+];
+function leagueMetrics(lg){
+  if(!LMET[lg])LMET[lg]=TEAMS.filter(t=>t.league===lg&&t.games.length>=8).map(t=>({t,m:teamMetrics(t)})).filter(x=>x.m);
+  return LMET[lg];
+}
+function rankOf(lg,key,dir,v){
+  const vals=leagueMetrics(lg).map(x=>x.m[key]).filter(x=>x!=null);
+  if(v==null||vals.length<4)return null;
+  return{r:1+vals.filter(x=>dir>0?x>v:x<v).length,n:vals.length,avg:avg(vals)};
+}
+function teamStatsHtml(t){
+  if(ST===null){loadStats();return '<section class="card story"><h2 style="font-size:1.1rem">팀 지표</h2><p>지표를 불러오는 중이에요…</p></section>'}
+  if(ST===false)return '';
+  const m=teamMetrics(t);if(!m)return '';
+  const veil=S.spoiler&&!S.statsRevealed,lg=t.league;
+  const groups=[...new Set(MDEF.map(x=>x[0]))].map(gname=>`<div class="mpanel"><h5>${gname}</h5>${MDEF.filter(x=>x[0]===gname).map(([,k,label,fmt,dir,sp])=>{
+    const v=m[k];if(v==null)return '';
+    if(sp&&veil)return `<div class="mrow"><span class="ml">${label}</span><b class="mv muted">가림</b><span class="mr"></span></div>`;
+    const rk=rankOf(lg,k,dir,v),tone=rk?(rk.r<=Math.ceil(rk.n/3)?'good':rk.r>rk.n-Math.ceil(rk.n/3)?'bad':''):'';
+    return `<div class="mrow"><span class="ml">${label}</span><b class="mv">${fmt(v)}</b><span class="mr ${tone}">${rk?`${esc(lg)} ${rk.r}위<small>평균 ${fmt(rk.avg)}</small>`:''}</span></div>`;
+  }).join('')}</div>`).join('');
+  return `<section class="card story"><h2 style="font-size:1.1rem">팀 지표 <span class="muted" style="font-size:.8rem;font-weight:500">시즌 ${m.n}경기 · 순위는 ${esc(lg)}에서 8경기 이상 치른 ${leagueMetrics(lg).length}팀 기준</span></h2>
+    <div class="mgrid">${groups}</div>
+    <div class="mgrid">${sideHtml(t,veil)}${drakeHtml(t)}</div>
+    <p class="rel" style="margin:12px 0 0">초록은 리그 상위 3분의 1, 빨강은 하위 3분의 1이에요. 높고 낮음이 곧 잘하고 못함은 아니에요(예: 경기당 킬이 적은 팀이 운영으로 이기기도 해요).</p></section>`;
+}
+function sideHtml(t,veil){
+  if(veil)return `<div class="mpanel"><h5>진영별 승패</h5><p class="muted" style="margin:6px 0 10px">결과 가림 중이라 가렸어요.</p><button class="btn" type="button" data-stats>통계 보기</button></div>`;
+  const rows=['b','r'].map(c=>{const gs=t.games.filter(x=>x.code===c),w=gs.filter(x=>x.g.w===c).length,n=gs.length;
+    return `<div class="srow"><span class="sl ${c==='b'?'bl':'rd'}">${c==='b'?'블루':'레드'}</span><div class="sbar"><i class="${c==='b'?'bl':'rd'}" style="width:${n?w/n*100:0}%"></i></div><span class="sv">${w}승 ${n-w}패 <small>${n?Math.round(w/n*100):0}%</small></span></div>`}).join('');
+  return `<div class="mpanel"><h5>진영별 승패</h5>${rows}</div>`;
+}
+function drakeHtml(t){
+  const gs=t.games.filter(x=>x.g._st);
+  const rows=DRAKES.map(([k,label,col])=>{
+    const a=gs.reduce((s,x)=>s+(tSt(x.g,x.code,k)||0),0),b=gs.reduce((s,x)=>s+(tSt(x.g,opp(x.code),k)||0),0);
+    if(a+b===0)return '';
+    return `<div class="srow"><span class="sl"><em class="dot" style="background:${col}"></em>${label}</span><div class="sbar"><i style="width:${a/(a+b)*100}%;background:${col}"></i></div><span class="sv">${a} : ${b} <small>${Math.round(a/(a+b)*100)}%</small></span></div>`;
+  }).join('');
+  return `<div class="mpanel"><h5>용 종류별 획득 <span class="muted" style="font-weight:500">우리 : 상대</span></h5>${rows||'<p class="muted">기록이 없어요.</p>'}</div>`;
+}
+/* 선수 지표 표: 로스터 선수마다, 이 팀에서 그 포지션으로 뛴 경기 기준 */
+function playerTable(t,ros){
+  if(!ST)return '';
+  const rows=ros.map(p=>{
+    if(!p)return '';
+    const gs=t.games.filter(x=>{const pl=x.g[x.code==='b'?'bp':'rp'];return pl&&pl[p.role]===p.name});
+    const sg=gs.filter(x=>x.g._st);if(!sg.length)return '';
+    const P=(x,k)=>x.g._st[x.code==='b'?2:3][p.role][PF[k]];
+    let k=0,d=0,a=0,tk=0;for(const x of sg){k+=P(x,'k')||0;d+=P(x,'d')||0;a+=P(x,'a')||0;tk+=tSt(x.g,x.code,'k')||0}
+    const ch={};for(const x of gs){const c=x.g[x.code][p.role];if(c>=0)ch[c]=(ch[c]||0)+1}
+    const chs=Object.entries(ch).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    const pct=v=>v==null?'-':(v*100).toFixed(1)+'%';
+    return `<tr><td><span class="rtag" style="color:${ROLE_COLORS[ROLES[p.role]]}">${ROLE_KO[ROLES[p.role]]}</span></td><td><b>${esc(p.name)}</b></td><td class="num">${gs.length}</td>
+      <td class="num">${((k+a)/Math.max(d,1)).toFixed(1)}</td><td class="num">${tk?Math.round((k+a)/tk*100)+'%':'-'}</td>
+      <td class="num">${pct(avg(sg.map(x=>P(x,'dmg'))))}</td><td class="num">${pct(avg(sg.map(x=>P(x,'gsh'))))}</td>
+      <td class="num">${(avg(sg.map(x=>P(x,'vspm')))||0).toFixed(2)}</td><td class="num">${(avg(sg.map(x=>P(x,'cspm')))||0).toFixed(1)}</td>
+      <td><div class="chs">${chs.map(([c,n])=>`<span class="pc" title="${esc(CH[+c].ko)} ${n}회"><img src="${CH[+c].icon}" alt="${esc(CH[+c].ko)}" width="28" height="28"><i>${n}</i></span>`).join('')}</div></td></tr>`;
+  }).join('');
+  if(!rows)return '';
+  return `<div class="tscroll"><table class="ptable"><thead><tr><th>포지션</th><th>선수</th><th class="num">경기</th><th class="num" title="(킬+어시스트) ÷ 데스">KDA</th><th class="num" title="팀 킬 중 킬이나 어시스트로 관여한 비율">킬 관여</th><th class="num" title="팀이 챔피언에게 준 피해 중 이 선수의 몫">피해 비중</th><th class="num" title="팀이 번 골드 중 이 선수의 몫">골드 비중</th><th class="num">분당 시야</th><th class="num">분당 CS</th><th>챔피언</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="rel" style="margin:8px 0 0">이 팀에서 그 포지션으로 뛴 경기만 셌어요. 표가 넘치면 옆으로 밀어 보세요.</p>`;
+}
+
+/* ---------- 챔피언 순위: 리그·패치·포지션별 픽, 밴 ---------- */
+const INTL={WLDs:'월즈',MSI:'MSI',FST:'퍼스트 스탠드',EWC:'EWC'};
+const lgLabel=l=>INTL[l]||l;
+function champLeagues(){
+  const cnt={};G.forEach(g=>cnt[g.lg]=(cnt[g.lg]||0)+1);
+  const main=['LCK','LPL','LEC','LCS','LCP','CBLOL'].filter(l=>cnt[l]),intl=Object.keys(INTL).filter(l=>cnt[l]);
+  const rest=Object.keys(cnt).filter(l=>!main.includes(l)&&!intl.includes(l)).sort((a,b)=>cnt[b]-cnt[a]);
+  return{main:main.concat(intl),rest,cnt};
+}
+function renderChamps(){
+  const box=$('#champs-box');if(!box)return;
+  const L=champLeagues(),last=PATCHES[PATCHES.length-1],last3=new Set(PATCHES.slice(-3));
+  const gs=G.filter(g=>(S.cl==='all'||g.lg===S.cl)&&(S.cpt==='all'||(S.cpt==='latest'?g.p===last:last3.has(g.p))));
+  const ri=S.cr==='all'?null:+S.cr,n=gs.length;
+  const pk={},wn={},rl={},bn={};
+  for(const g of gs){
+    for(const code of['b','r'])g[code].forEach((c,i)=>{if(c<0||(ri!=null&&i!==ri))return;pk[c]=(pk[c]||0)+1;if(g.w===code)wn[c]=(wn[c]||0)+1;const o=rl[c]||(rl[c]=[0,0,0,0,0]);o[i]++});
+    for(const c of g.bb.concat(g.rb)){if(ri!=null&&CH[c].roles[0]!==ROLES[ri])continue;bn[c]=(bn[c]||0)+1}
+  }
+  const veil=S.spoiler&&!S.statsRevealed;
+  const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]||CH[+a[0]].ko.localeCompare(CH[+b[0]].ko,'ko'));
+  const P=top(pk),B=top(bn);
+  const ranks=list=>{let prev=null,r=0;return list.map(([c,v],i)=>{if(v!==prev){r=i+1;prev=v}return r})};
+  const pr=ranks(P),br=ranks(B);
+  const roleTag=c=>{const o=rl[c];if(!o)return '';const i=o.indexOf(Math.max(...o));return `<span class="rtag" style="color:${ROLE_COLORS[ROLES[i]]}">${ROLE_KO[ROLES[i]]}</span>`};
+  const nm=c=>`<button type="button" class="cname" data-chsearch="${c}" title="밴픽 찾기에서 ${esc(CH[c].ko)} 경기 보기"><img src="${CH[c].icon}" alt="" width="32" height="32"><span>${esc(CH[c].ko)}</span></button>`;
+  const pRows=P.slice(0,S.cn).map(([c,v],i)=>`<tr><td class="rk">${pr[i]}</td><td>${nm(+c)}</td><td>${roleTag(c)}</td><td class="num">${v}</td><td class="num">${(v/n*100).toFixed(1)}%</td><td class="num">${veil?'<span class="muted">가림</span>':Math.round((wn[c]||0)/v*100)+'%'}</td></tr>`).join('');
+  const bRows=B.slice(0,S.cn).map(([c,v],i)=>`<tr><td class="rk">${br[i]}</td><td>${nm(+c)}</td><td class="num">${v}</td><td class="num">${(v/n*100).toFixed(1)}%</td><td class="num">${(((pk[c]||0)+v)/n*100).toFixed(0)}%</td></tr>`).join('');
+  const chip=(k,v,label,on)=>`<button class="chip ${on?'on':''}" type="button" data-${k}="${esc(v)}">${esc(label)}</button>`;
+  box.innerHTML=`<div class="page-h"><h1>챔피언 순위</h1><p class="muted">리그와 패치를 고르면 많이 뽑히고 많이 밴된 챔피언을 보여 줘요. 챔피언을 누르면 그 챔피언이 나온 경기를 찾아요.</p></div>
+    <section class="card story">
+      <div class="tools" style="margin:0">${chip('cl','all','전체 리그',S.cl==='all')}${L.main.map(l=>chip('cl',l,lgLabel(l),S.cl===l)).join('')}
+        <select class="sel" id="cl-more" aria-label="다른 리그"><option value="">다른 리그…</option>${L.rest.map(l=>`<option value="${esc(l)}" ${S.cl===l?'selected':''}>${esc(l)} (${L.cnt[l]}경기)</option>`).join('')}</select></div>
+      <div class="tools">${chip('cpt','all','전체 패치',S.cpt==='all')}${chip('cpt','last3','최근 3개 패치',S.cpt==='last3')}${chip('cpt','latest','최신 패치 '+last,S.cpt==='latest')}</div>
+      <div class="tabs rtabs" role="tablist" style="margin-top:14px"><button role="tab" type="button" data-cr="all" aria-selected="${S.cr==='all'}">모든 라인</button>${ROLES.map((r,i)=>`<button role="tab" type="button" data-cr="${i}" aria-selected="${S.cr===String(i)}"><em class="dot" style="background:${ROLE_COLORS[r]}"></em>${ROLE_KO[r]}</button>`).join('')}</div>
+    </section>
+    <p class="muted" style="margin:0 0 10px;font-size:.85rem">${esc(S.cl==='all'?'전체 리그':lgLabel(S.cl))} · ${S.cpt==='all'?'전체 패치':S.cpt==='latest'?'패치 '+last:'최근 3개 패치'} · <b style="color:var(--fg)">${n.toLocaleString('ko-KR')}경기</b>${ri!=null?` · ${ROLE_KO[ROLES[ri]]}`:''}</p>
+    ${n?`<div class="ctwo">
+      <section class="card ctab"><h2>많이 뽑힌 챔피언</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th>포지션</th><th class="num">픽</th><th class="num" title="전체 경기 중 이 챔피언이 나온 경기의 비율">픽률</th><th class="num">승률</th></tr></thead><tbody>${pRows}</tbody></table></section>
+      <section class="card ctab"><h2>많이 밴된 챔피언</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th class="num">밴</th><th class="num" title="전체 경기 중 이 챔피언이 밴된 경기의 비율">밴률</th><th class="num" title="픽 또는 밴으로 등장한 경기의 비율">등장률</th></tr></thead><tbody>${bRows}</tbody></table></section>
+    </div>
+    ${Math.max(P.length,B.length)>S.cn?`<button class="more" type="button" data-cmore>더 보기</button>`:''}
+    <p class="rel">픽률과 밴률은 고른 경기 중 몇 %에서 나왔는지예요. 포지션을 고르면 밴은 그 포지션을 주로 맡는 챔피언만 보여 줘요. ${veil?'승률은 결과 가림 중이라 가렸어요.':''}</p>`
+    :'<div class="card empty-state"><h2>조건에 맞는 경기가 없어요</h2></div>'}`;
 }
 
 /* ---------- 내 팀(마이 팀 고르기 또는 팀 홈), 팀 페이지 ---------- */
@@ -877,7 +1033,7 @@ function renderPicker(){
 }
 
 /* ---------- 이벤트 ---------- */
-function refresh(){renderResults();renderSeries();if(!$('#view-column').hidden)renderColumn(S.col);if(!$('#view-teams').hidden)renderTeams();if(!$('#view-team').hidden)renderTeam(S.team);if(S.detailId)openDetail(S.detailId)}
+function refresh(){renderResults();renderSeries();if(!$('#view-champs').hidden)renderChamps();if(!$('#view-column').hidden)renderColumn(S.col);if(!$('#view-teams').hidden)renderTeams();if(!$('#view-team').hidden)renderTeam(S.team);if(S.detailId)openDetail(S.detailId)}
 function update(){renderBoard();renderFilters();renderResults()}
 document.addEventListener('click',e=>{
   const t=e.target;
@@ -890,7 +1046,13 @@ document.addEventListener('click',e=>{
   const pe=t.closest('[data-persp]');if(pe&&S.detailId){S.persp={id:S.detailId,code:pe.dataset.persp};openDetail(S.detailId);return}
   const tl=t.closest('[data-tlg]');if(tl){S.tlg=tl.dataset.tlg;renderTeams();return}
   if(t.closest('[data-tmore]')){S.tMore+=12;if(!$('#view-team').hidden)renderTeam(S.team);else renderTeams();return}
-  if(t.closest('[data-stats]')){S.statsRevealed=true;renderResults();return}
+  if(t.closest('[data-stats]')){S.statsRevealed=true;refresh();return}
+  const cl=t.closest('[data-cl]');if(cl){S.cl=cl.dataset.cl;S.cn=20;renderChamps();return}
+  const cp=t.closest('[data-cpt]');if(cp){S.cpt=cp.dataset.cpt;S.cn=20;renderChamps();return}
+  const cr=t.closest('[data-cr]');if(cr){S.cr=cr.dataset.cr;S.cn=20;renderChamps();return}
+  if(t.closest('[data-cmore]')){S.cn+=20;renderChamps();return}
+  const cs=t.closest('[data-chsearch]');if(cs){const c=CH[+cs.dataset.chsearch],role=S.cr!=='all'?ROLES[+S.cr]:(c.roles[0]||'mid');
+    setBoard({blue:{[role]:c.en}});S.leagues.clear();if(S.cl!=='all'&&LEAGUES.includes(S.cl))S.leagues.add(S.cl);S.shown=12;location.hash='search';update();window.scrollTo({top:0});return}
   if(t.closest('[data-sreveal]')){S.sRevealed.add(S.series);S.sEnd=false;renderSeries();return}
   const clr=t.closest('.clr');if(clr){S[clr.dataset.side][+clr.dataset.i]=-1;S.shown=12;update();return}
   const slot=t.closest('.slot');if(slot){openPicker(slot.dataset.side,+slot.dataset.i);return}
@@ -938,6 +1100,7 @@ document.addEventListener('keydown',e=>{
 MENUS.forEach(k=>$('#dd-'+k).onclick=e=>{e.stopPropagation();toggleMenu(k)});
 $('#reset').onclick=()=>{S.blue.fill(-1);S.red.fill(-1);S.shown=12;update()};
 $('#p-q').addEventListener('input',renderPicker);
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='cl-more'&&e.target.value){S.cl=e.target.value;S.cn=20;renderChamps()}});
 document.addEventListener('input',e=>{if(e.target&&e.target.id==='team-q'){S.tq=e.target.value;const el=$('#team-pick');if(el)el.innerHTML=teamPickList()}});
 $('#p-close').onclick=closePicker;
 $('#picker').addEventListener('click',e=>{
@@ -961,10 +1124,11 @@ function syncSpoiler(){
 /* ---------- 화면 전환 + 시작 ---------- */
 function route(){
   const h=location.hash,mc=/^#column-(\d+)$/.exec(h),mt=/^#team-(\d+)$/.exec(h);
-  const v=mc?'column':mt?'team':h==='#columns'?'columns':h==='#series'?'series':h==='#search'?'search':'teams';
-  for(const k of['teams','team','search','series','columns','column'])$('#view-'+k).hidden=k!==v;
+  const v=mc?'column':mt?'team':h==='#columns'?'columns':h==='#series'?'series':h==='#search'?'search':h==='#champs'?'champs':'teams';
+  for(const k of['teams','team','champs','search','series','columns','column'])$('#view-'+k).hidden=k!==v;
   const nav=v==='column'?'columns':v==='team'?'teams':v;
-  for(const k of['teams','search','series','columns'])$('#nav-'+k).setAttribute('aria-current',k===nav?'page':'false');
+  for(const k of['teams','champs','search','series','columns'])$('#nav-'+k).setAttribute('aria-current',k===nav?'page':'false');
+  if(v==='champs')renderChamps();
   if(v==='series')renderSeries();
   if(v==='column')renderColumn(+mc[1]);
   if(v==='teams')renderTeams();
@@ -988,7 +1152,8 @@ Promise.all([fetch('champs.json').then(r=>r.json()),fetch('games.json').then(r=>
   buildPop();
   buildTeams();
   try{let mt=store.get('df-my-team');if(mt===null){const old=JSON.parse(store.get('df-teams')||'[]');mt=old[0]||''}S.myTeam=mt&&TEAMIDX[mt]!=null?mt:null}catch(e){S.myTeam=null}
-  if(TEAMS.some(t=>t.league==='LCK'))S.tlg='LCK';       // 한국 팬 기준: 처음엔 LCK 팀부터 보여 준다
+  if(TEAMS.some(t=>t.league==='LCK'))S.tlg='LCK';
+  S.cl=S.myTeam?TEAMS[TEAMIDX[S.myTeam]].league:(G.some(g=>g.lg==='LCK')?'LCK':'all');       // 한국 팬 기준: 처음엔 LCK 팀부터 보여 준다
   applyTheme();
   SLIST=[...SERIES.values()].sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:b.id-a.id);
   PATCHES=[...new Set(G.map(x=>x.p))].sort((a,b)=>{const A=pKey(a),B=pKey(b);return A[0]-B[0]||A[1]-B[1]});
