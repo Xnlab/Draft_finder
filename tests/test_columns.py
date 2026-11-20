@@ -9,6 +9,7 @@ title: 제목
 date: 2026-11-19
 kick: 예시
 lede: 요약
+teams: T1, Gen.G
 ---
 첫 문단
 이어지는 줄
@@ -26,6 +27,7 @@ lede: 요약
 def test_parses_front_matter_paragraphs_and_embeds():
     c = parse_column(OK, "a")
     assert (c["title"], c["date"], c["kick"], c["lede"], c["slug"]) == ("제목", "2026-11-19", "예시", "요약", "a")
+    assert c["teams"] == ["T1", "Gen.G"]
     kinds = [b["type"] for b in c["blocks"]]
     assert kinds == ["p", "h", "search", "series", "game"]
     assert c["blocks"][0]["text"] == "첫 문단 이어지는 줄"      # 줄바꿈은 한 문단으로

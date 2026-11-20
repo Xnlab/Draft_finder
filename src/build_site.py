@@ -136,7 +136,7 @@ def main() -> None:
     ko_by_en = {en: ko for ko, en in load_name_map().items()}
     stats = build(df, a.out, a.demo, a.columns, ko_by_en, info["files"], info["version"])
     if a.with_app:
-        for f in ("index.html", "app.js"):
+        for f in ("index.html", "app.js", "teams.json"):
             shutil.copy(APP_DIR / f, a.out / f)
     print(("데모" if a.demo else "실제 데이터"), "->", a.out, stats)
 

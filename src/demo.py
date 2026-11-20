@@ -40,6 +40,7 @@ TEAMS = {
     "LCS": ["C9", "TL", "FLY", "100T"],
 }
 
+PLAYER_KO = {"top": "탑", "jng": "정글", "mid": "미드", "bot": "원딜", "sup": "서폿"}
 PATCHES = [f"16.{i:02d}" for i in range(1, 9)]
 ALL_CHAMPS = sorted({c for pool in POOL.values() for c in pool})
 SERIES_LEN = [1, 2, 3, 4, 5]
@@ -110,7 +111,7 @@ def make_demo_games(n: int = 400, seed: int = 7) -> pd.DataFrame:
                         champ = str(rng.choice([c for c in ALL_CHAMPS if c not in used]))
                     used.add(champ)
                     row[f"{side}_{pos}"] = champ
-                    row[f"{side}_{pos}_player"] = None
+                    row[f"{side}_{pos}_player"] = f"{row[side + '_team']} {PLAYER_KO[pos]}"  # 가상 이름
             spent |= {row[f"{s_}_{p}"] for s_ in ("blue", "red") for p in POSITIONS}
             # 밴 5개씩 (뽑힌 챔피언은 제외, 피어리스에서도 밴은 소진되지 않는다)
             bans = rng.choice([c for c in ALL_CHAMPS if c not in used], size=10, replace=False)

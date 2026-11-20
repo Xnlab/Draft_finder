@@ -8,6 +8,7 @@
     date: 2026-11-19              (필수)
     kick: 예시                    (선택, 제목 위에 붙는 짧은 말)
     lede: 목록에 보일 한두 문장   (선택)
+    teams: T1, Gen.G              (선택, 이 글과 관련된 팀의 영문 이름. 그 팀의 마이 팀 화면에 글이 나온다)
     ---
 
     본문 문단. 빈 줄로 문단을 나눈다.
@@ -115,8 +116,9 @@ def parse_column(text: str, slug: str = "") -> dict:
             blocks.append({"type": "h", "text": para[3:].strip()})
         else:
             blocks.append({"type": "p", "text": " ".join(x.strip() for x in lines)})
+    teams = [t.strip() for t in meta.get("teams", "").split(",") if t.strip()]
     return {"slug": slug, "title": meta["title"], "date": meta["date"], "kick": meta.get("kick", ""),
-            "lede": meta.get("lede", ""), "blocks": blocks}
+            "lede": meta.get("lede", ""), "teams": teams, "blocks": blocks}
 
 
 def load_columns(folder: Path) -> list[dict]:

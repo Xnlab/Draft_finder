@@ -10,7 +10,7 @@ let TEAMS=[],TEAMIDX={},LDIST={};
 const S={blue:[-1,-1,-1,-1,-1],red:[-1,-1,-1,-1,-1],patch:'all',leagues:new Set(),sets:'all',pos:'any',flexOnly:false,
   tab:'full',shown:12,spoiler:false,revealed:new Set(),statsRevealed:false,detailId:null,
   series:null,sSet:0,sShown:1,sLeague:'all',sMore:24,sRevealed:new Set(),sEnd:false,
-  teams:[],tq:'',tlg:'all',fMore:12,tMore:12,persp:null,team:null,pickOpen:null};
+  teams:[],tq:'',tlg:'all',fMore:12,tMore:12,persp:null,team:null,myTeam:null,changing:false};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtGd=v=>v==null?'-':(v>0?'+':v<0?'−':'')+Math.abs(Math.round(v)).toLocaleString('ko-KR');
@@ -640,10 +640,10 @@ function sparkSvg(v,win){
 }
 /* 경기 상세의 "이 경기 읽기": 어느 팀 시점으로 읽을지 고른다 (응원팀, 상대 팀 팬 모두를 위해) */
 function readHtml(g,id){
-  const fav=['b','r'].find(c=>S.teams.includes(c==='b'?g.bt:g.rt));
+  const fav=['b','r'].find(c=>S.myTeam===(c==='b'?g.bt:g.rt));
   const code=(S.persp&&S.persp.id===id)?S.persp.code:(fav||'b');
   const veil=hidden(id),n=narrate(g,code),win=g.w===code;
-  const tab=c=>`<button role="tab" type="button" data-persp="${c}" aria-selected="${c===code}">${esc(c==='b'?g.bt:g.rt)} 시점</button>`;
+  const tab=c=>`<button role="tab" type="button" data-persp="${c}" aria-selected="${c===code}">${esc(tn(c==='b'?g.bt:g.rt))} 시점</button>`;
   const notes=n.notes.filter(x=>!veil||!x.spoils).slice(0,4).map(x=>`<li>${esc(x.t)}</li>`).join('');
   const arc=veil?'<p class="arcl muted">결과 가림 중이라 경기 흐름은 가려 뒀어요.</p>'
     :`<div class="trow2">${n.a?`<span class="arc ${ARC_TONE[n.a]}">${n.arc}</span>`:''}${n.v?sparkSvg(n.v,win):''}</div><p class="arcl">${esc(n.arcLine)}</p>`;
@@ -679,78 +679,178 @@ function leagueDist(lg){
   if(!LDIST[lg]){const list=[];for(const g of G)if(g.lg===lg){list.push({g,code:'b'},{g,code:'r'})}LDIST[lg]=distOf(list)}
   return LDIST[lg];
 }
-function followSave(){store.set('df-teams',JSON.stringify(S.teams))}
-const teamLink=(name,cls)=>TEAMIDX[name]!=null?`<button type="button" class="linkbtn ${cls||''}" data-team="${TEAMIDX[name]}">${esc(name)}</button>`:esc(name);
+/* ---------- 팀 스타일: 로고 대신 직접 만든 엠블럼(약칭 + 팀 색)과 마이 팀 색 테마 ---------- */
+let TSTYLE={};
+const _fb={};
+function hex2rgb(h){h=h.replace('#','');return[0,2,4].map(i=>parseInt(h.slice(i,i+2),16))}
+function rgb2hex(c){return'#'+c.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('')}
+function lum(c){const f=v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)};return .2126*f(c[0])+.7152*f(c[1])+.0722*f(c[2])}
+function contrast(a,b){const A=lum(a),B=lum(b);return(Math.max(A,B)+.05)/(Math.min(A,B)+.05)}
+function mixc(a,b,t){return a.map((v,i)=>v+(b[i]-v)*t)}
+/* 배경 위에서 글자로 쓸 수 있게(명암비 min 이상) 팀 색을 어둡게/밝게 조정한다 */
+function inkOn(hex,bgHex,min){
+  const bg=hex2rgb(bgHex),base=hex2rgb(hex),target=lum(bg)>.5?[0,0,0]:[255,255,255];
+  let c=base,t=0;
+  while(contrast(c,bg)<min&&t<1){t+=.05;c=mixc(base,target,t)}
+  return rgb2hex(c);
+}
+const fgOn=hex=>contrast(hex2rgb(hex),[17,17,17])>=contrast(hex2rgb(hex),[255,255,255])?'#111111':'#ffffff';
+function hsl2hex(h,s,l){s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return rgb2hex([f(0)*255,f(8)*255,f(4)*255])}
+function initials(n){
+  const w=n.replace(/[^A-Za-z0-9가-힣 ]/g,' ').split(/\s+/).filter(Boolean);
+  return(w.length>1?w.slice(0,3).map(x=>x[0]).join(''):n.replace(/[^A-Za-z0-9가-힣]/g,'').slice(0,3)).toUpperCase();
+}
+function teamStyle(name){
+  if(TSTYLE[name])return TSTYLE[name];
+  if(_fb[name])return _fb[name];
+  const sub=/^(.+?) ((?:Esports )?(?:Academy|Challengers|Rookies|Scholars|Youth)(?: Rookies)?)$/.exec(name);
+  if(sub&&TSTYLE[sub[1]]){
+    const p=TSTYLE[sub[1]],suf=sub[2],L=/Rookies/.test(suf)?'R':/Academy/.test(suf)?'A':/Challengers/.test(suf)?'C':/Scholars/.test(suf)?'S':'Y';
+    return _fb[name]={short:p.short+'-'+L,ko:(p.ko||sub[1])+' '+suf.replace('Esports ',''),c:rgb2hex(mixc(hex2rgb(p.c),[128,128,128],.35)),c2:p.c2};
+  }
+  let h=0;for(const ch of name)h=(h*31+ch.charCodeAt(0))>>>0;
+  const hue=h%360;
+  return _fb[name]={short:initials(name),ko:name,c:hsl2hex(hue,58,42),c2:hsl2hex((hue+22)%360,52,18)};
+}
+const tn=name=>teamStyle(name).ko||name;
+function emblem(name,size){
+  const st=teamStyle(name),n=st.short.length,fs=Math.round(size*(n<=2?.4:n===3?.32:n===4?.26:.22));
+  return `<span class="eb" style="--c:${st.c};--c2:${st.c2};--f:${fgOn(st.c)};width:${size}px;height:${size}px;font-size:${fs}px" aria-hidden="true">${esc(st.short)}</span>`;
+}
+/* 마이 팀을 고르면 사이트 전체의 강조색, 배경 색조, 헤더가 그 팀 색으로 바뀐다 (라이트/다크 모두 글자 명암비를 맞춘다) */
+function applyTheme(){
+  const root=document.documentElement,props=['--team','--team2','--ink-l','--ink-d','--fg-l','--fg-d'];
+  if(!S.myTeam){root.classList.remove('themed');props.forEach(p=>root.style.removeProperty(p))}
+  else{
+    const st=teamStyle(S.myTeam),il=inkOn(st.c,'#ffffff',4.5),id=inkOn(st.c,'#141a24',4.5);
+    root.style.setProperty('--team',st.c);root.style.setProperty('--team2',st.c2);
+    root.style.setProperty('--ink-l',il);root.style.setProperty('--ink-d',id);
+    root.style.setProperty('--fg-l',fgOn(il));root.style.setProperty('--fg-d',fgOn(id));
+    root.classList.add('themed');
+  }
+  const n=$('#nav-teams');if(n)n.innerHTML=S.myTeam?`${emblem(S.myTeam,22)}<span>내 팀</span>`:'내 팀';
+}
+function setMyTeam(name){
+  S.myTeam=name||null;S.changing=false;
+  store.set('df-my-team',S.myTeam||'');
+  applyTheme();
+  if(S.detailId)openDetail(S.detailId);
+  if(!$('#view-team').hidden)renderTeam(S.team);
+  else{location.hash='teams';route()}
+}
+const teamLink=(name,cls)=>TEAMIDX[name]!=null?`<button type="button" class="linkbtn ${cls||''}" data-team="${TEAMIDX[name]}">${esc(tn(name))}</button>`:esc(tn(name));
 
-/* 응원팀 시점의 경기 카드: 흐름 유형, 골드 곡선, 눈에 띈 점 */
+/* ---------- 응원팀 시점의 경기 카드: 흐름 유형, 골드 곡선, 눈에 띈 점 ---------- */
 function tcardHtml(g,code){
   const veil=hidden(g.id),opp=code==='b'?g.rt:g.bt,me=code==='b'?g.bt:g.rt;
   const n=narrate(g,code),win=g.w===code,nws=new Set(g._new[code]);
   const icons=g[code].map(c=>c<0?'<span class="tph">?</span>':`<div class="tic" title="${esc(CH[c].ko)}${nws.has(c)?' · 올해 처음 꺼낸 픽':''}"><img src="${CH[c].icon}" alt="${esc(CH[c].ko)}" width="36" height="36">${nws.has(c)?'<em class="nw">처음</em>':''}</div>`).join('');
   const res=veil?`<button class="reveal" type="button" data-reveal="${g.id}">결과 보기</button>`:`<span class="gres ${win?'win':'loss'}">${win?'승':'패'}</span>`;
   const notes=n.notes.filter(x=>!veil||!x.spoils).slice(0,3).map(x=>`<li>${esc(x.t)}</li>`).join('');
-  return `<article class="card tcard" data-open="${g.id}" tabindex="0" aria-label="${esc(me)} 대 ${esc(opp)} 경기 읽기">
+  return `<article class="card tcard" data-open="${g.id}" tabindex="0" aria-label="${esc(tn(me))} 대 ${esc(tn(opp))} 경기 읽기">
     <div class="gh"><span class="lg">${esc(g.lg)}</span><span>${fmtDate(g.d)} · ${g.s}세트</span>${res}</div>
-    <div class="tmain"><div class="tvs"><b>${esc(me)}</b><span class="muted">vs</span>${teamLink(opp)}</div><div class="ticons">${icons}</div></div>
+    <div class="tmain"><div class="tvs">${emblem(me,26)}<b>${esc(tn(me))}</b><span class="muted">vs</span>${emblem(opp,22)}${teamLink(opp)}</div><div class="ticons">${icons}</div></div>
     ${veil?'':`<div class="trow2">${n.a?`<span class="arc ${ARC_TONE[n.a]}">${n.arc}</span>`:''}${n.v?sparkSvg(n.v,win):''}</div><p class="arcl">${esc(n.arcLine)}</p>`}
     ${notes?`<ul class="notes">${notes}</ul>`:''}</article>`;
 }
 
-/* 내 팀: 응원팀 고르기 + 응원팀 경기 모아 보기 */
+/* ---------- 팀 홈에 들어가는 조각들 ---------- */
+/* 로스터: 최근 40경기에서 포지션마다 가장 많이 나온 선수와 그 선수의 챔피언 */
+function roster(t){
+  const recent=t.games.slice(-40),by=ROLES.map(()=>({}));
+  for(const{g,code}of recent){
+    const pl=g[code==='b'?'bp':'rp'];if(!pl)continue;
+    ROLES.forEach((r,i)=>{
+      const nm=pl[i];if(!nm)return;
+      const o=by[i][nm]||(by[i][nm]={n:0,ch:{}});o.n++;
+      const c=g[code][i];if(c>=0)o.ch[c]=(o.ch[c]||0)+1;
+    });
+  }
+  return by.map((m,i)=>{
+    const e=Object.entries(m).sort((a,b)=>b[1].n-a[1].n)[0];
+    return e?{role:i,name:e[0],games:e[1].n,top:Object.entries(e[1].ch).sort((a,b)=>b[1]-a[1]).slice(0,3)}:null;
+  });
+}
+function playerCard(p,t){
+  const st=teamStyle(t.name),ini=/^[\x00-\x7f]+$/.test(p.name)?p.name.slice(0,2).toUpperCase():p.name.slice(0,2);
+  return `<div class="pcard"><div class="av" style="--c:${st.c};--c2:${st.c2};--f:${fgOn(st.c)}"><span>${esc(ini)}</span><em style="background:${ROLE_COLORS[ROLES[p.role]]}">${ROLE_KO[ROLES[p.role]]}</em></div>
+    <b title="${esc(p.name)}">${esc(p.name)}</b><small>${p.games}경기 출전</small>
+    <div class="pch">${p.top.map(([c,n])=>`<span class="pc" title="${esc(CH[+c].ko)} ${n}회"><img src="${CH[+c].icon}" alt="${esc(CH[+c].ko)}" width="32" height="32"><i>${n}</i></span>`).join('')}</div></div>`;
+}
+function banStats(t){
+  const own={},against={},sig=ROLES.map(()=>({}));
+  for(const{g,code}of t.games){
+    for(const c of g[code==='b'?'bb':'rb'])own[c]=(own[c]||0)+1;
+    for(const c of g[code==='b'?'rb':'bb'])against[c]=(against[c]||0)+1;
+    g[code].forEach((c,i)=>{if(c>=0)sig[i][c]=(sig[i][c]||0)+1});
+  }
+  const top=(o,n)=>Object.entries(o).sort((a,b)=>b[1]-a[1]).slice(0,n);
+  return{own:top(own,8),against:top(against,8),sig:sig.map(o=>top(o,1)[0])};
+}
+const iconRow=list=>`<div class="bi">${list.map(([c,n])=>`<span class="pc" title="${esc(CH[+c].ko)} ${n}회"><img src="${CH[+c].icon}" alt="${esc(CH[+c].ko)}" width="36" height="36"><i>${n}</i></span>`).join('')}</div>`;
+
+function teamHero(t,mine){
+  const st=teamStyle(t.name),veil=S.spoiler&&!S.statsRevealed;
+  const mid=rgb2hex(mixc(hex2rgb(st.c),hex2rgb(st.c2),.5)),hf=fgOn(mid);
+  const btns=mine
+    ?`<button class="hbtn" type="button" data-change>마이 팀 바꾸기</button><button class="hbtn" type="button" data-myteam="">마이 팀 해제</button>`
+    :`<button class="hbtn solid" type="button" data-myteam="${esc(t.name)}">마이 팀으로 설정</button>`;
+  return `<section class="hero2" style="--hc:${st.c};--hc2:${st.c2};--hf:${hf};--hs:${hf==='#ffffff'?'#111111':'#ffffff'}">
+    <span class="hemb">${emblem(t.name,84)}</span>
+    <div class="htx"><div class="hk">${esc(t.league)}${veil?'':` · ${t.w}승 ${t.l}패`} · ${t.games.length}경기${mine?' · 내 응원팀':''}</div><h1>${esc(tn(t.name))}</h1>${st.ko!==t.name?`<div class="hsub">${esc(t.name)}</div>`:''}</div>
+    <div class="hbtns">${btns}</div></section>`;
+}
+function teamFlow(t){
+  const veil=S.spoiler&&!S.statsRevealed,td=distOf(t.games),ld=leagueDist(t.league);
+  if(veil)return `<div class="stat veilbox"><div class="k">결과 가림 중</div><p style="margin:4px 0 10px">경기 흐름 분포는 결과를 알려 줘서 가렸어요.</p><button class="btn" type="button" data-stats>통계 보기</button></div>`;
+  if(td.n<10)return '<p class="muted" style="margin:0">골드 기록이 있는 경기가 10개 미만이라 흐름 분포를 보여 주기 어려워요.</p>';
+  const pct=(o,a)=>(o.c[a]||0)/o.n*100,mx=Math.max(...ARC_ORDER.map(a=>Math.max(pct(td,a),pct(ld,a))))*1.15;
+  const top=ARC_ORDER.map(a=>({a,d:pct(td,a)-pct(ld,a)})).sort((x,y)=>Math.abs(y.d)-Math.abs(x.d))[0];
+  return `<p style="margin:0 0 12px"><b>${ARC_LABEL[top.a]}</b>${josa(ARC_LABEL[top.a])} ${pct(td,top.a).toFixed(0)}%로 ${esc(t.league)} 평균(${pct(ld,top.a).toFixed(0)}%)보다 ${top.d>0?'많아요':'적어요'}.</p>`
+    +ARC_ORDER.map(a=>`<div class="drow2"><span class="dl">${ARC_LABEL[a]}</span><div class="dbar2"><i class="${ARC_TONE[a]}" style="width:${pct(td,a)/mx*100}%"></i><b style="left:${pct(ld,a)/mx*100}%" title="${esc(t.league)} 평균 ${pct(ld,a).toFixed(0)}%"></b></div><span class="dv">${pct(td,a).toFixed(0)}% <small>평균 ${pct(ld,a).toFixed(0)}%</small></span></div>`).join('')
+    +`<p class="rel" style="margin:10px 0 0">막대는 이 팀, 세로 표시는 ${esc(t.league)} 평균이에요. 골드 기록이 있는 ${td.n}경기 기준이에요.</p>`;
+}
+/* 팀 홈(마이 팀) / 팀 페이지(다른 팀) 공용 본문 */
+function teamBody(t,mine){
+  const ros=roster(t),bs=banStats(t),recent=t.games.slice().reverse();
+  const rosterHtml=ros.some(Boolean)?`<section class="card story"><h2 style="font-size:1.1rem">선수 <span class="muted" style="font-size:.8rem;font-weight:500">최근 40경기 기준 주전과 챔피언</span></h2><div class="pgrid">${ros.map(p=>p?playerCard(p,t):'').join('')}</div><p class="rel" style="margin:12px 0 0">선수 사진은 쓰지 않아요. 권리를 확인한 사진이 생기면 이 자리에 넣을 수 있어요.</p></section>`:'';
+  const sigRow=`<div class="siglist">${bs.sig.map((s,i)=>s?`<div class="sigp"><span class="rl" style="color:${ROLE_COLORS[ROLES[i]]}">${ROLE_KO[ROLES[i]]}</span><span class="pc" title="${esc(CH[+s[0]].ko)} ${s[1]}회"><img src="${CH[+s[0]].icon}" alt="${esc(CH[+s[0]].ko)}" width="40" height="40"><i>${s[1]}</i></span></div>`:'').join('')}</div>`;
+  const picksHtml=`<section class="card story"><h2 style="font-size:1.1rem">밴픽</h2>
+    <h5 class="sub5" style="margin-top:12px">포지션별로 가장 많이 쓴 챔피언</h5>${sigRow}
+    <h5 class="sub5">이 팀이 자주 밴한 챔피언</h5>${iconRow(bs.own)}
+    <h5 class="sub5">이 팀을 상대로 자주 밴된 챔피언</h5>${iconRow(bs.against)}</section>`;
+  const feed=`<div class="section-title"><h2>최근 경기</h2></div><div class="games one">${recent.slice(0,S.tMore).map(x=>tcardHtml(x.g,x.code)).join('')}</div>${recent.length>S.tMore?`<button class="more" type="button" data-tmore>경기 더 보기 (${recent.length-S.tMore}개 남음)</button>`:''}`;
+  const rel=COLUMNS.map((c,i)=>({c,i})).filter(x=>(x.c.teams||[]).includes(t.name));
+  const colHtml=rel.length?`<div class="section-title"><h2>이 팀 이야기</h2></div><div class="cols">${rel.map(x=>colCard(x.c,x.i)).join('')}</div>`:'';
+  return `${teamHero(t,mine)}${rosterHtml}${feed}${picksHtml}<section class="card story" style="margin-top:16px"><h2 style="font-size:1.1rem">이 팀의 경기 흐름</h2>${teamFlow(t)}</section>${colHtml}`;
+}
+
+/* ---------- 내 팀(마이 팀 고르기 또는 팀 홈), 팀 페이지 ---------- */
 function teamPickList(){
   const q=S.tq.trim().toLowerCase();
-  let list=TEAMS.filter(t=>(S.tlg==='all'||t.league===S.tlg)&&(!q||t.name.toLowerCase().includes(q)));
+  let list=TEAMS.filter(t=>(S.tlg==='all'||t.league===S.tlg)&&(!q||t.name.toLowerCase().includes(q)||tn(t.name).toLowerCase().includes(q)));
   const total=list.length;list=list.slice(0,60);
-  return `<div class="tchips">${list.map(t=>{const on=S.teams.includes(t.name);return `<span class="tchip ${on?'on':''}"><button type="button" data-follow="${esc(t.name)}" aria-pressed="${on}">${on?'✓ ':''}${esc(t.name)} <small>${t.games.length}</small></button><button type="button" class="go" data-team="${t.id}" aria-label="${esc(t.name)} 팀 페이지" title="팀 페이지 보기">›</button></span>`}).join('')||'<p class="muted">찾는 팀이 없어요.</p>'}</div>${total>60?`<p class="muted" style="margin:8px 0 0;font-size:.82rem">${total-60}개 팀이 더 있어요. 이름으로 검색해 보세요.</p>`:''}`;
+  return `<div class="egrid">${list.map(t=>`<div class="etile ${S.myTeam===t.name?'on':''}"><button type="button" class="ebtn" data-myteam="${esc(t.name)}" title="${esc(t.name)}">${emblem(t.name,64)}<span>${esc(tn(t.name))}</span></button><button type="button" class="eview" data-team="${t.id}" aria-label="${esc(tn(t.name))} 팀 페이지">팀 보기</button></div>`).join('')||'<p class="muted">찾는 팀이 없어요.</p>'}</div>${total>60?`<p class="muted" style="margin:10px 0 0;font-size:.82rem">${total-60}개 팀이 더 있어요. 이름으로 검색해 보세요.</p>`:''}`;
 }
 function renderTeams(){
   const box=$('#teams-box');if(!box)return;
-  const mine=S.teams.map(n=>TEAMIDX[n]).filter(i=>i!=null);
+  const id=S.myTeam!=null?TEAMIDX[S.myTeam]:null;
+  if(id!=null&&!S.changing){box.innerHTML=teamBody(TEAMS[id],true);return}
   const lgCnt={};TEAMS.forEach(t=>lgCnt[t.league]=(lgCnt[t.league]||0)+t.games.length);
-  const lgs=Object.entries(lgCnt).sort((a,b)=>b[1]-a[1]).slice(0,8).map(x=>x[0]);
-  const open=S.pickOpen!==null?S.pickOpen:!mine.length;      // 응원팀이 없으면 팀 고르기가 펼쳐져 있고, 있으면 접혀 있다
-  const pickerBody=`<input class="q" id="team-q" type="search" placeholder="팀 이름 검색 (예: T1)" autocomplete="off" value="${esc(S.tq)}" style="width:100%;margin:0 0 10px">
-      <div class="tools" style="margin:0 0 12px"><button class="chip ${S.tlg==='all'?'on':''}" type="button" data-tlg="all">전체</button>${lgs.map(l=>`<button class="chip ${S.tlg===l?'on':''}" type="button" data-tlg="${esc(l)}">${esc(l)}</button>`).join('')}</div>
-      <div id="team-pick">${teamPickList()}</div>`;
-  let mineCard='',feed='';
-  if(mine.length){
-    mineCard=`<section class="card story" style="margin-bottom:12px"><h2 style="font-size:1.05rem">내 응원팀</h2><div class="tchips">${mine.map(i=>`<span class="tchip on"><button type="button" data-team="${i}">${esc(TEAMS[i].name)}</button><button type="button" class="go" data-follow="${esc(TEAMS[i].name)}" aria-label="${esc(TEAMS[i].name)} 응원팀에서 빼기" title="응원팀에서 빼기">×</button></span>`).join('')}</div></section>`;
-    const all=[];mine.forEach(i=>TEAMS[i].games.forEach(x=>all.push(x)));
-    all.sort((a,b)=>a.g.datetime>b.g.datetime?-1:a.g.datetime<b.g.datetime?1:0);
-    feed=`<div class="section-title" style="margin-top:8px"><h2>내 팀의 최근 경기</h2></div><div class="games one">${all.slice(0,S.fMore).map(x=>tcardHtml(x.g,x.code)).join('')}</div>${all.length>S.fMore?`<button class="more" type="button" data-fmore>경기 더 보기 (${all.length-S.fMore}개 남음)</button>`:''}`;
-  }
-  const picker=mine.length
-    ?`<section class="card story" style="margin-top:24px"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><h2 style="font-size:1.05rem;margin:0">팀 추가·변경</h2><button class="chip" type="button" data-pickt>${open?'접기':'펼치기'}</button></div>${open?`<div style="margin-top:12px">${pickerBody}</div>`:''}</section>`
-    :`<section class="card story"><h2 style="font-size:1.1rem">응원팀을 골라 주세요</h2><p class="muted" style="margin:0 0 12px">고른 팀은 이 브라우저에만 저장돼요.</p>${pickerBody}</section>`;
-  box.innerHTML=`<div class="page-h"><h1>내 팀</h1><p class="muted">응원하는 팀을 고르면 그 팀의 경기를 모아서, 경기마다 흐름과 눈에 띈 점을 읽어 드려요. 팀 이름 옆의 › 를 누르면 팀 페이지를 볼 수 있어요. 응원팀이 아니어도 누구나 볼 수 있어요.</p></div>${mineCard}${feed}${picker}`;
+  const lgs=Object.entries(lgCnt).sort((a,b)=>(b[0]==='LCK')-(a[0]==='LCK')||b[1]-a[1]).slice(0,8).map(x=>x[0]);
+  box.innerHTML=`<div class="page-h"><h1>${id!=null?'마이 팀 바꾸기':'내 팀을 골라 주세요'}</h1><p class="muted">팀 엠블럼을 누르면 사이트가 그 팀의 색으로 바뀌고, 그 팀의 선수, 밴픽, 경기, 칼럼이 첫 화면에 모여요. 고른 팀은 이 브라우저에만 저장돼요.</p></div>
+    <section class="card story">
+      <input class="q" id="team-q" type="search" placeholder="팀 이름 검색 (예: 젠지, T1)" autocomplete="off" value="${esc(S.tq)}" style="width:100%;margin:0 0 10px">
+      <div class="tools" style="margin:0 0 14px"><button class="chip ${S.tlg==='all'?'on':''}" type="button" data-tlg="all">전체</button>${lgs.map(l=>`<button class="chip ${S.tlg===l?'on':''}" type="button" data-tlg="${esc(l)}">${esc(l)}</button>`).join('')}</div>
+      <div id="team-pick">${teamPickList()}</div>
+      <p class="rel" style="margin:14px 0 0">엠블럼은 팀 로고가 아니라 약칭과 팀 색으로 직접 만든 그림이에요. 팀 색과 한글 이름은 초안이라 틀릴 수 있어요.</p></section>
+    ${id!=null?`<button class="chip" type="button" data-keep style="margin-top:14px">← 바꾸지 않고 돌아가기</button>`:''}`;
 }
 function renderTeam(id){
   S.team=id;
   const box=$('#team-box'),t=TEAMS[id];
   if(!t){box.innerHTML='<div class="card empty-state"><h2>찾는 팀이 없어요</h2><a class="btn" href="#teams">내 팀으로</a></div>';return}
-  const veil=S.spoiler&&!S.statsRevealed,followed=S.teams.includes(t.name);
-  const td=distOf(t.games),ld=leagueDist(t.league);
-  let flow;
-  if(veil)flow=`<div class="stat veilbox"><div class="k">결과 가림 중</div><p style="margin:4px 0 10px">승패와 경기 흐름 분포는 결과를 알려 줘서 가렸어요.</p><button class="btn" type="button" data-stats>통계 보기</button></div>`;
-  else if(td.n<10)flow='<p class="muted" style="margin:0">골드 기록이 있는 경기가 10개 미만이라 흐름 분포를 보여 주기 어려워요.</p>';
-  else{
-    const pct=(o,a)=>(o.c[a]||0)/o.n*100,mx=Math.max(...ARC_ORDER.map(a=>Math.max(pct(td,a),pct(ld,a))))*1.15;
-    const diffs=ARC_ORDER.map(a=>({a,d:pct(td,a)-pct(ld,a)})).sort((x,y)=>Math.abs(y.d)-Math.abs(x.d));
-    const top=diffs[0];
-    flow=`<p style="margin:0 0 12px"><b>${ARC_LABEL[top.a]}</b>${josa(ARC_LABEL[top.a])} ${pct(td,top.a).toFixed(0)}%로 ${esc(t.league)} 평균(${pct(ld,top.a).toFixed(0)}%)보다 ${top.d>0?'많아요':'적어요'}.</p>`
-      +ARC_ORDER.map(a=>`<div class="drow2"><span class="dl">${ARC_LABEL[a]}</span><div class="dbar2"><i class="${ARC_TONE[a]}" style="width:${pct(td,a)/mx*100}%"></i><b style="left:${pct(ld,a)/mx*100}%" title="${esc(t.league)} 평균 ${pct(ld,a).toFixed(0)}%"></b></div><span class="dv">${pct(td,a).toFixed(0)}% <small>평균 ${pct(ld,a).toFixed(0)}%</small></span></div>`).join('')
-      +`<p class="rel" style="margin:10px 0 0">막대는 이 팀, 세로 표시는 ${esc(t.league)} 평균이에요. 골드 기록이 있는 ${td.n}경기 기준이에요.</p>`;
-  }
-  const cnt={};t.games.forEach(({g,code})=>g[code].forEach(c=>{if(c>=0)cnt[c]=(cnt[c]||0)+1}));
-  const sig=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  const recent=t.games.slice().reverse();
-  box.innerHTML=`<a class="chip" href="#teams">← 내 팀</a>
-    <div class="teamhead"><div><h1>${esc(t.name)}</h1><p class="muted" style="margin:0">${esc(t.league)} · ${t.games.length}경기${veil?'':` · ${t.w}승 ${t.l}패`}</p></div>
-      <button class="btn ${followed?'':'primary'}" type="button" data-follow="${esc(t.name)}">${followed?'응원팀에서 빼기':'응원팀으로 저장'}</button></div>
-    <section class="card story"><h2 style="font-size:1.15rem">이 팀의 경기 흐름</h2>${flow}</section>
-    <section class="card story"><h2 style="font-size:1.15rem">많이 쓴 챔피언</h2><div class="sig">${sig.map(([c,n])=>`<div class="sigi" title="${esc(CH[c].ko)} ${n}회"><img src="${CH[c].icon}" alt="${esc(CH[c].ko)}" width="40" height="40"><small>${n}</small></div>`).join('')}</div></section>
-    <div class="section-title"><h2>최근 경기</h2></div><div class="games one">${recent.slice(0,S.tMore).map(x=>tcardHtml(x.g,x.code)).join('')}</div>
-    ${recent.length>S.tMore?`<button class="more" type="button" data-tmore>경기 더 보기 (${recent.length-S.tMore}개 남음)</button>`:''}`;
+  box.innerHTML=`<a class="chip" href="#teams">← 내 팀</a><div style="height:12px"></div>${teamBody(t,S.myTeam===t.name)}`;
 }
 
 /* ---------- 챔피언 고르기 ---------- */
@@ -783,13 +883,13 @@ document.addEventListener('click',e=>{
   const t=e.target;
   // 결과 공개 버튼은 카드 클릭(상세 열기)보다 먼저 처리한다
   const rv=t.closest('[data-reveal]');if(rv){S.revealed.add(rv.dataset.reveal);refresh();return}
-  if(t.closest('[data-pickt]')){const hasMine=S.teams.length>0;S.pickOpen=!(S.pickOpen!==null?S.pickOpen:!hasMine);renderTeams();return}
-  const fl=t.closest('[data-follow]');if(fl){if($('#team-pick'))S.pickOpen=true;const n=fl.dataset.follow,i=S.teams.indexOf(n);if(i>=0)S.teams.splice(i,1);else S.teams.push(n);followSave();if(S.detailId)openDetail(S.detailId);if(!$('#view-teams').hidden)renderTeams();if(!$('#view-team').hidden)renderTeam(S.team);return}
+  const mt=t.closest('[data-myteam]');if(mt){setMyTeam(mt.dataset.myteam);return}
+  if(t.closest('[data-change]')){S.changing=true;renderTeams();window.scrollTo({top:0});return}
+  if(t.closest('[data-keep]')){S.changing=false;renderTeams();return}
   const tm=t.closest('[data-team]');if(tm){closeDetail();S.tMore=12;location.hash='team-'+tm.dataset.team;route();window.scrollTo({top:0});return}
   const pe=t.closest('[data-persp]');if(pe&&S.detailId){S.persp={id:S.detailId,code:pe.dataset.persp};openDetail(S.detailId);return}
   const tl=t.closest('[data-tlg]');if(tl){S.tlg=tl.dataset.tlg;renderTeams();return}
-  if(t.closest('[data-fmore]')){S.fMore+=12;renderTeams();return}
-  if(t.closest('[data-tmore]')){S.tMore+=12;renderTeam(S.team);return}
+  if(t.closest('[data-tmore]')){S.tMore+=12;if(!$('#view-team').hidden)renderTeam(S.team);else renderTeams();return}
   if(t.closest('[data-stats]')){S.statsRevealed=true;renderResults();return}
   if(t.closest('[data-sreveal]')){S.sRevealed.add(S.series);S.sEnd=false;renderSeries();return}
   const clr=t.closest('.clr');if(clr){S[clr.dataset.side][+clr.dataset.i]=-1;S.shown=12;update();return}
@@ -872,8 +972,8 @@ function route(){
 }
 window.addEventListener('hashchange',route);
 
-Promise.all([fetch('champs.json').then(r=>r.json()),fetch('games.json').then(r=>r.json()),fetch('meta.json').then(r=>r.json()).catch(()=>({demo:true})),fetch('columns.json').then(r=>r.json()).catch(()=>[])]).then(([c,g,m,cols])=>{
-  CH=c;G=g;META=m;COLUMNS=cols;CH.forEach(x=>CHIDX[x.en]=x.id);
+Promise.all([fetch('champs.json').then(r=>r.json()),fetch('games.json').then(r=>r.json()),fetch('meta.json').then(r=>r.json()).catch(()=>({demo:true})),fetch('columns.json').then(r=>r.json()).catch(()=>[]),fetch('teams.json').then(r=>r.json()).catch(()=>({}))]).then(([c,g,m,cols,ts])=>{
+  CH=c;G=g;META=m;COLUMNS=cols;TSTYLE=ts;CH.forEach(x=>CHIDX[x.en]=x.id);
   for(const x of G){
     BYID[x.id]=x;x._b=new Set(x.b.filter(v=>v>=0));x._r=new Set(x.r.filter(v=>v>=0));
     if(x.sid!=null){let s=SERIES.get(x.sid);if(!s){s={id:x.sid,games:[]};SERIES.set(x.sid,s)}s.games.push(x)}
@@ -887,7 +987,9 @@ Promise.all([fetch('champs.json').then(r=>r.json()),fetch('games.json').then(r=>
   }
   buildPop();
   buildTeams();
-  try{S.teams=JSON.parse(store.get('df-teams')||'[]').filter(n=>TEAMIDX[n]!=null)}catch(e){S.teams=[]}
+  try{let mt=store.get('df-my-team');if(mt===null){const old=JSON.parse(store.get('df-teams')||'[]');mt=old[0]||''}S.myTeam=mt&&TEAMIDX[mt]!=null?mt:null}catch(e){S.myTeam=null}
+  if(TEAMS.some(t=>t.league==='LCK'))S.tlg='LCK';       // 한국 팬 기준: 처음엔 LCK 팀부터 보여 준다
+  applyTheme();
   SLIST=[...SERIES.values()].sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:b.id-a.id);
   PATCHES=[...new Set(G.map(x=>x.p))].sort((a,b)=>{const A=pKey(a),B=pKey(b);return A[0]-B[0]||A[1]-B[1]});
   LEAGUES=[...new Set(G.map(x=>x.lg))].sort();
