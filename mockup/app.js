@@ -690,7 +690,7 @@ Promise.all([fetch('champs.json').then(r=>r.json()),fetch('games.json').then(r=>
   SLIST=[...SERIES.values()].sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:b.id-a.id);
   PATCHES=[...new Set(G.map(x=>x.p))].sort((a,b)=>{const A=pKey(a),B=pKey(b);return A[0]-B[0]||A[1]-B[1]});
   LEAGUES=[...new Set(G.map(x=>x.lg))].sort();
-  if(!META.demo){$('#demo-pill').hidden=true;$('#foot').textContent='챔피언 이미지는 Riot Games Data Dragon, 경기 데이터는 Oracle\'s Elixir 2026 파일을 사용했어요. (로컬 확인용)'}
+  if(!META.demo){$('#demo-pill').hidden=true;$('#foot').textContent='챔피언 이미지는 Riot Games Data Dragon을, 경기 데이터는 Oracle\'s Elixir(Tim Sevenhuysen)의 2026 파일을 사용했어요. (로컬 확인용)'}
   S.spoiler=store.get('df-spoiler')==='1';syncSpoiler();
   setBoard({blue:{jng:'Vi',mid:'Orianna'}});
   renderColumns();route();update();
