@@ -777,26 +777,6 @@ function playerCard(p,t){
     <b title="${esc(p.name)}">${esc(p.name)}</b><small>${p.games}경기 출전</small>
     <div class="pch">${p.top.map(([c,n])=>`<span class="pc" title="${esc(CH[+c].ko)} ${n}회"><img src="${CH[+c].icon}" alt="${esc(CH[+c].ko)}" width="32" height="32"><i>${n}</i></span>`).join('')}</div></div>`;
 }
-function banStats(t){
-  const own={},against={},sig=ROLES.map(()=>({}));
-  for(const{g,code}of t.games){
-    for(const c of g[code==='b'?'bb':'rb'])own[c]=(own[c]||0)+1;
-    for(const c of g[code==='b'?'rb':'bb'])against[c]=(against[c]||0)+1;
-    g[code].forEach((c,i)=>{if(c>=0)sig[i][c]=(sig[i][c]||0)+1});
-  }
-  const top=(o,n)=>Object.entries(o).sort((a,b)=>b[1]-a[1]).slice(0,n);
-  return{own:top(own,8),against:top(against,8),sig:sig.map(o=>top(o,1)[0])};
-}
-/* 밴: 전체/블루/레드 진영별로 많이 밴한(또는 밴된) 챔피언 6개와 그 경기 비율 */
-function banPanel(t,kind){
-  const row=(label,cls,games)=>{
-    const c={};for(const{g,code}of games){const side=kind==='own'?code:opp(code);for(const x of g[side==='b'?'bb':'rb'])c[x]=(c[x]||0)+1}
-    const top=Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,6);
-    return `<div class="bnrow"><span class="sl ${cls}">${label}</span><div class="bi sm">${top.map(([x,n])=>`<span class="pc" title="${esc(CH[+x].ko)} ${n}회 / ${games.length}경기"><img src="${CH[+x].icon}" alt="${esc(CH[+x].ko)}" width="32" height="32"><i>${Math.round(n/games.length*100)}%</i></span>`).join('')}</div></div>`;
-  };
-  return `<div class="mpanel"><h5>${kind==='own'?'이 팀이 밴한 챔피언':'이 팀 상대로 밴된 챔피언'}</h5>${row('전체','',t.games)}${row('블루','bl',t.games.filter(x=>x.code==='b'))}${row('레드','rd',t.games.filter(x=>x.code==='r'))}</div>`;
-}
-const iconRow=list=>`<div class="bi">${list.map(([c,n])=>`<span class="pc" title="${esc(CH[+c].ko)} ${n}회"><img src="${CH[+c].icon}" alt="${esc(CH[+c].ko)}" width="36" height="36"><i>${n}</i></span>`).join('')}</div>`;
 
 function teamHero(t,mine){
   const st=teamStyle(t.name),veil=S.spoiler&&!S.statsRevealed;
@@ -820,17 +800,20 @@ function teamFlow(t){
     +`<p class="rel" style="margin:10px 0 0">막대는 이 팀, 세로 표시는 ${esc(t.league)} 평균이에요. 골드 기록이 있는 ${td.n}경기 기준이에요.</p>`;
 }
 /* 팀 홈(마이 팀) / 팀 페이지(다른 팀) 공용 본문 */
+/* 좁은 화면에서 최근 흐름은 옆으로 밀리니, 가장 최근 경기가 보이게 오른쪽 끝에서 시작한다 */
+function formToEnd(){document.querySelectorAll('.form').forEach(e=>{e.scrollLeft=e.scrollWidth})}
 function teamBody(t,mine){
-  const ros=roster(t),bs=banStats(t),recent=t.games.slice().reverse();
-  const rosterHtml=ros.some(Boolean)?`<section class="card story"><h2 style="font-size:1.1rem">선수 <span class="muted" style="font-size:.8rem;font-weight:500">최근 40경기 기준 주전과 챔피언</span></h2><div class="pgrid">${ros.map(p=>p?playerCard(p,t):'').join('')}</div>${playerTable(t,ros)}<p class="rel" style="margin:12px 0 0">선수 사진은 쓰지 않아요. 권리를 확인한 사진이 생기면 이 자리에 넣을 수 있어요.</p></section>`:'';
-  const sigRow=`<div class="siglist">${bs.sig.map((s,i)=>s?`<div class="sigp"><span class="rl" style="color:${ROLE_COLORS[ROLES[i]]}">${ROLE_KO[ROLES[i]]}</span><span class="pc" title="${esc(CH[+s[0]].ko)} ${s[1]}회"><img src="${CH[+s[0]].icon}" alt="${esc(CH[+s[0]].ko)}" width="40" height="40"><i>${s[1]}</i></span></div>`:'').join('')}</div>`;
-  const picksHtml=`<section class="card story"><h2 style="font-size:1.1rem">밴픽</h2>
-    <h5 class="sub5" style="margin-top:12px">포지션별로 가장 많이 쓴 챔피언</h5>${sigRow}
-    <div class="mgrid">${banPanel(t,'own')}${banPanel(t,'against')}</div></section>`;
-  const feed=`<div class="section-title"><h2>최근 경기</h2></div><div class="games one">${recent.slice(0,S.tMore).map(x=>tcardHtml(x.g,x.code)).join('')}</div>${recent.length>S.tMore?`<button class="more" type="button" data-tmore>경기 더 보기 (${recent.length-S.tMore}개 남음)</button>`:''}`;
+  const ros=roster(t),recent=t.games.slice().reverse();
+  const rosterHtml=ros.some(Boolean)?`<section class="card story"><h2 class="ptitle">선수 <span>최근 40경기 기준 주전</span></h2><div class="pgrid">${ros.map(p=>p?playerCard(p,t):'').join('')}</div>${playerTable(t,ros)}<p class="rel" style="margin:12px 0 0">선수 사진은 쓰지 않아요. 권리를 확인한 사진이 생기면 이 자리에 넣을 수 있어요.</p></section>`:'';
+  const veil=S.spoiler&&!S.statsRevealed;
+  const extra=ST?`<div class="mgrid">${sideHtml(t,veil)}${drakeHtml(t)}</div>`:'';
+  const feed=`<div class="section-title"><h2>최근 경기 읽기</h2></div><div class="games one">${recent.slice(0,S.tMore).map(x=>tcardHtml(x.g,x.code)).join('')}</div>${recent.length>S.tMore?`<button class="more" type="button" data-tmore>경기 더 보기 (${recent.length-S.tMore}개 남음)</button>`:''}`;
   const rel=COLUMNS.map((c,i)=>({c,i})).filter(x=>(x.c.teams||[]).includes(t.name));
   const colHtml=rel.length?`<div class="section-title"><h2>이 팀 이야기</h2></div><div class="cols">${rel.map(x=>colCard(x.c,x.i)).join('')}</div>`:'';
-  return `${teamHero(t,mine)}${rosterHtml}${teamStatsHtml(t)}${feed}${picksHtml}<section class="card story" style="margin-top:16px"><h2 style="font-size:1.1rem">이 팀의 경기 흐름</h2>${teamFlow(t)}</section>${colHtml}`;
+  return `${teamHero(t,mine)}${summaryCards(t)}${formChart(t)}
+    <div class="tgrid"><div>${teamStatsHtml(t)}</div><div>${teamChampTables(t)}</div></div>
+    ${extra?`<section class="card story"><h2 class="ptitle">진영과 용</h2>${extra}</section>`:''}
+    ${rosterHtml}${feed}<section class="card story" style="margin-top:16px"><h2 class="ptitle">경기 흐름 유형</h2>${teamFlow(t)}</section>${colHtml}`;
 }
 
 /* ---------- 팀·선수 지표 (stats.json): 팀 페이지와 챔피언 순위를 열 때만 읽는다 ---------- */
@@ -880,22 +863,6 @@ function rankOf(lg,key,dir,v){
   const vals=leagueMetrics(lg).map(x=>x.m[key]).filter(x=>x!=null);
   if(v==null||vals.length<4)return null;
   return{r:1+vals.filter(x=>dir>0?x>v:x<v).length,n:vals.length,avg:avg(vals)};
-}
-function teamStatsHtml(t){
-  if(ST===null){loadStats();return '<section class="card story"><h2 style="font-size:1.1rem">팀 지표</h2><p>지표를 불러오는 중이에요…</p></section>'}
-  if(ST===false)return '';
-  const m=teamMetrics(t);if(!m)return '';
-  const veil=S.spoiler&&!S.statsRevealed,lg=t.league;
-  const groups=[...new Set(MDEF.map(x=>x[0]))].map(gname=>`<div class="mpanel"><h5>${gname}</h5>${MDEF.filter(x=>x[0]===gname).map(([,k,label,fmt,dir,sp])=>{
-    const v=m[k];if(v==null)return '';
-    if(sp&&veil)return `<div class="mrow"><span class="ml">${label}</span><b class="mv muted">가림</b><span class="mr"></span></div>`;
-    const rk=rankOf(lg,k,dir,v),tone=rk?(rk.r<=Math.ceil(rk.n/3)?'good':rk.r>rk.n-Math.ceil(rk.n/3)?'bad':''):'';
-    return `<div class="mrow"><span class="ml">${label}</span><b class="mv">${fmt(v)}</b><span class="mr ${tone}">${rk?`${esc(lg)} ${rk.r}위<small>평균 ${fmt(rk.avg)}</small>`:''}</span></div>`;
-  }).join('')}</div>`).join('');
-  return `<section class="card story"><h2 style="font-size:1.1rem">팀 지표 <span class="muted" style="font-size:.8rem;font-weight:500">시즌 ${m.n}경기 · 순위는 ${esc(lg)}에서 8경기 이상 치른 ${leagueMetrics(lg).length}팀 기준</span></h2>
-    <div class="mgrid">${groups}</div>
-    <div class="mgrid">${sideHtml(t,veil)}${drakeHtml(t)}</div>
-    <p class="rel" style="margin:12px 0 0">초록은 리그 상위 3분의 1, 빨강은 하위 3분의 1이에요. 높고 낮음이 곧 잘하고 못함은 아니에요(예: 경기당 킬이 적은 팀이 운영으로 이기기도 해요).</p></section>`;
 }
 function sideHtml(t,veil){
   if(veil)return `<div class="mpanel"><h5>진영별 승패</h5><p class="muted" style="margin:6px 0 10px">결과 가림 중이라 가렸어요.</p><button class="btn" type="button" data-stats>통계 보기</button></div>`;
@@ -949,10 +916,10 @@ function renderChamps(){
   const L=champLeagues(),last=PATCHES[PATCHES.length-1],last3=new Set(PATCHES.slice(-3));
   const gs=G.filter(g=>(S.cl==='all'||g.lg===S.cl)&&(S.cpt==='all'||(S.cpt==='latest'?g.p===last:last3.has(g.p))));
   const ri=S.cr==='all'?null:+S.cr,n=gs.length;
-  const pk={},wn={},rl={},bn={};
+  const pk={},wn={},rl={},bn={},bs={};
   for(const g of gs){
     for(const code of['b','r'])g[code].forEach((c,i)=>{if(c<0||(ri!=null&&i!==ri))return;pk[c]=(pk[c]||0)+1;if(g.w===code)wn[c]=(wn[c]||0)+1;const o=rl[c]||(rl[c]=[0,0,0,0,0]);o[i]++});
-    for(const c of g.bb.concat(g.rb)){if(ri!=null&&CH[c].roles[0]!==ROLES[ri])continue;bn[c]=(bn[c]||0)+1}
+    for(const[side,list]of[['b',g.bb],['r',g.rb]])for(const c of list){if(ri!=null&&CH[c].roles[0]!==ROLES[ri])continue;bn[c]=(bn[c]||0)+1;const o=bs[c]||(bs[c]={b:0,r:0});o[side]++}
   }
   const veil=S.spoiler&&!S.statsRevealed;
   const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]||CH[+a[0]].ko.localeCompare(CH[+b[0]].ko,'ko'));
@@ -961,8 +928,10 @@ function renderChamps(){
   const pr=ranks(P),br=ranks(B);
   const roleTag=c=>{const o=rl[c];if(!o)return '';const i=o.indexOf(Math.max(...o));return `<span class="rtag" style="color:${ROLE_COLORS[ROLES[i]]}">${ROLE_KO[ROLES[i]]}</span>`};
   const nm=c=>`<button type="button" class="cname" data-chsearch="${c}" title="밴픽 찾기에서 ${esc(CH[c].ko)} 경기 보기"><img src="${CH[c].icon}" alt="" width="32" height="32"><span>${esc(CH[c].ko)}</span></button>`;
-  const pRows=P.slice(0,S.cn).map(([c,v],i)=>`<tr><td class="rk">${pr[i]}</td><td>${nm(+c)}</td><td>${roleTag(c)}</td><td class="num">${v}</td><td class="num">${(v/n*100).toFixed(1)}%</td><td class="num">${veil?'<span class="muted">가림</span>':Math.round((wn[c]||0)/v*100)+'%'}</td></tr>`).join('');
-  const bRows=B.slice(0,S.cn).map(([c,v],i)=>`<tr><td class="rk">${br[i]}</td><td>${nm(+c)}</td><td class="num">${v}</td><td class="num">${(v/n*100).toFixed(1)}%</td><td class="num">${(((pk[c]||0)+v)/n*100).toFixed(0)}%</td></tr>`).join('');
+  const pmx=P.length?P[0][1]:1,bmx=B.length?B[0][1]:1;
+  const wcell=(c,v)=>{if(veil)return '<span class="muted">가림</span>';const w=wn[c]||0,wr=w/v*100;return `<b class="${v>=10&&wr>=60?'pos':v>=10&&wr<=40?'neg':''}">${Math.round(wr)}%</b><small class="muted wl">${w}승 ${v-w}패</small>`};
+  const pRows=P.slice(0,S.cn).map(([c,v],i)=>`<tr class="barrow" style="--w:${v/pmx*100}%"><td class="rk">${pr[i]}</td><td>${nm(+c)}</td><td>${roleTag(c)}</td><td class="num"><b>${v}</b></td><td class="num">${(v/n*100).toFixed(1)}%</td><td class="num">${wcell(c,v)}</td></tr>`).join('');
+  const bRows=B.slice(0,S.cn).map(([c,v],i)=>{const o=bs[c];return `<tr class="barrow ban" style="--w:${v/bmx*100}%"><td class="rk">${br[i]}</td><td>${nm(+c)}</td><td class="num"><b>${v}</b></td><td class="num">${(v/n*100).toFixed(1)}%</td><td class="split"><div class="spl"><i class="bl" style="width:${o.b/v*100}%"></i><i class="rd" style="width:${o.r/v*100}%"></i></div><small><span class="bl">${Math.round(o.b/v*100)}%</span> · <span class="rd">${Math.round(o.r/v*100)}%</span></small></td></tr>`}).join('');
   const chip=(k,v,label,on)=>`<button class="chip ${on?'on':''}" type="button" data-${k}="${esc(v)}">${esc(label)}</button>`;
   box.innerHTML=`<div class="page-h"><h1>챔피언 순위</h1><p class="muted">리그와 패치를 고르면 많이 뽑히고 많이 밴된 챔피언을 보여 줘요. 챔피언을 누르면 그 챔피언이 나온 경기를 찾아요.</p></div>
     <section class="card story">
@@ -974,12 +943,106 @@ function renderChamps(){
     <p class="muted" style="margin:0 0 10px;font-size:.85rem">${esc(S.cl==='all'?'전체 리그':lgLabel(S.cl))} · ${S.cpt==='all'?'전체 패치':S.cpt==='latest'?'패치 '+last:'최근 3개 패치'} · <b style="color:var(--fg)">${n.toLocaleString('ko-KR')}경기</b>${ri!=null?` · ${ROLE_KO[ROLES[ri]]}`:''}</p>
     ${n?`<div class="ctwo">
       <section class="card ctab"><h2>많이 뽑힌 챔피언</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th>포지션</th><th class="num">픽</th><th class="num" title="전체 경기 중 이 챔피언이 나온 경기의 비율">픽률</th><th class="num">승률</th></tr></thead><tbody>${pRows}</tbody></table></section>
-      <section class="card ctab"><h2>많이 밴된 챔피언</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th class="num">밴</th><th class="num" title="전체 경기 중 이 챔피언이 밴된 경기의 비율">밴률</th><th class="num" title="픽 또는 밴으로 등장한 경기의 비율">등장률</th></tr></thead><tbody>${bRows}</tbody></table></section>
+      <section class="card ctab"><h2>많이 밴된 챔피언</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th class="num">밴</th><th class="num" title="전체 경기 중 이 챔피언이 밴된 경기의 비율">밴률</th><th title="블루 진영이 밴한 비율 · 레드 진영이 밴한 비율">밴한 진영</th></tr></thead><tbody>${bRows}</tbody></table></section>
     </div>
     ${Math.max(P.length,B.length)>S.cn?`<button class="more" type="button" data-cmore>더 보기</button>`:''}
-    <p class="rel">픽률과 밴률은 고른 경기 중 몇 %에서 나왔는지예요. 포지션을 고르면 밴은 그 포지션을 주로 맡는 챔피언만 보여 줘요. ${veil?'승률은 결과 가림 중이라 가렸어요.':''}</p>`
+    <p class="rel">픽률과 밴률은 고른 경기 중 몇 %에서 나왔는지예요. 막대는 1위 대비 횟수예요. 포지션을 고르면 밴은 그 포지션을 주로 맡는 챔피언만 보여 줘요. ${veil?'승률은 결과 가림 중이라 가렸어요.':''}</p>`
     :'<div class="card empty-state"><h2>조건에 맞는 경기가 없어요</h2></div>'}`;
 }
+
+/* ---------- 팀 페이지 대시보드 (dpm.lol을 참고한 배치): 요약 카드, 최근 흐름, 리그 비교, 챔피언 표 ---------- */
+const PAXES=[['k','경기당 킬',1],['fb','첫 킬',1],['ft','첫 포탑',1],['gd15','15분 골드',1],['csd15','15분 CS',1],['drgS','용',1],['barS','바론',1],['vspm','시야',1]];
+function pctl(lg,key,dir,v){
+  const vals=leagueMetrics(lg).map(x=>x.m[key]).filter(x=>x!=null);
+  if(v==null||vals.length<4)return null;
+  const worse=vals.filter(x=>dir>0?x<v:x>v).length,eq=vals.filter(x=>x===v).length-1;
+  return(worse+eq/2)/(vals.length-1);
+}
+function radarSvg(t,m){
+  const W=320,H=270,cx=160,cy=135,R=92,N=PAXES.length;
+  const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/N;return[cx+Math.cos(a)*R*r,cy+Math.sin(a)*R*r]};
+  const poly=rs=>rs.map((r,i)=>pt(i,r).map(v=>v.toFixed(1)).join(',')).join(' ');
+  const ps=PAXES.map(([k,,d])=>{const p=pctl(t.league,k,d,m[k]);return p==null?.5:Math.max(.06,p)});
+  const rings=[.25,.5,.75,1].map(r=>`<polygon points="${poly(PAXES.map(()=>r))}" class="rg${r===.5?' mid':''}"/>`).join('');
+  const spokes=PAXES.map((_,i)=>{const[x,y]=pt(i,1);return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="rg"/>`}).join('');
+  const labels=PAXES.map(([,l],i)=>{const[x,y]=pt(i,1.2),c=Math.cos(-Math.PI/2+i*2*Math.PI/N);return `<text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="${Math.abs(c)<.2?'middle':c>0?'start':'end'}">${l}</text>`}).join('');
+  return `<svg class="radar" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(tn(t.name))}의 지표를 ${esc(t.league)} 팀들과 비교한 그림">${rings}${spokes}<polygon points="${poly(ps)}" class="rv"/>${ps.map((r,i)=>{const[x,y]=pt(i,r);return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" class="rd"/>`}).join('')}${labels}</svg>`;
+}
+function teamStatsHtml(t){
+  if(ST===null){loadStats();return '<section class="card story"><h2 class="ptitle">리그 비교</h2><p>지표를 불러오는 중이에요…</p></section>'}
+  if(ST===false)return '';
+  const m=teamMetrics(t);if(!m)return '';
+  const veil=S.spoiler&&!S.statsRevealed,lg=t.league,nt=leagueMetrics(lg).length;
+  const rows=[...new Set(MDEF.map(x=>x[0]))].map(gname=>`<div class="mgh">${gname}</div>`+MDEF.filter(x=>x[0]===gname).map(([,k,label,fmt,dir,sp,neu])=>{
+    const v=m[k];if(v==null)return '';
+    if(sp&&veil)return `<div class="mrow"><span class="rkb">–</span><span class="ml">${label}</span><b class="mv muted">가림</b><span class="mav"></span></div>`;
+    const rk=rankOf(lg,k,dir,v),third=rk?Math.ceil(rk.n/3):0,tone=!rk||neu?'':rk.r<=third?'good':rk.r>rk.n-third?'bad':'';
+    return `<div class="mrow"><span class="rkb ${tone}" title="${esc(lg)} ${rk?rk.n:''}팀 중">${rk?rk.r+'위':'–'}</span><span class="ml">${label}</span><b class="mv">${fmt(v)}</b><span class="mav">${rk?fmt(rk.avg):''}</span></div>`;
+  }).join('')).join('');
+  return `<section class="card story"><h2 class="ptitle">리그 비교 <span>${esc(tn(t.name))} vs ${esc(lg)} ${nt}팀</span></h2>
+    ${radarSvg(t,m)}
+    <p class="rel" style="margin:0 0 6px;text-align:center">점선은 ${esc(lg)}의 가운데(중간 순위)예요. 바깥으로 갈수록 리그에서 앞서요.</p>
+    <div class="mhead"><span>순위</span><span></span><span>${esc(tn(t.name))}</span><span>리그 평균</span></div>${rows}
+    <p class="rel" style="margin:12px 0 0">시즌 ${m.n}경기 기준. 초록은 리그 상위 3분의 1, 빨강은 하위 3분의 1이에요. 높고 낮음이 곧 잘하고 못함은 아니에요(경기당 킬이 적은 팀이 운영으로 이기기도 해요).</p></section>`;
+}
+/* 요약 카드 4개 */
+function summaryCards(t){
+  const veil=S.spoiler&&!S.statsRevealed,cnt={},win={};
+  for(const{g,code}of t.games)g[code].forEach(c=>{if(c<0)return;cnt[c]=(cnt[c]||0)+1;if(g.w===code)win[c]=(win[c]||0)+1});
+  const uniq=Object.keys(cnt).length,top=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
+  const lu=TEAMS.filter(x=>x.league===t.league&&x.games.length>=8).map(x=>new Set(x.games.flatMap(({g,code})=>g[code].filter(c=>c>=0))).size);
+  const ur=lu.length>=4?1+lu.filter(x=>x>uniq).length:null;
+  let killer=null;
+  if(ST){const kc={};for(const x of t.games){if(!x.g._st)continue;const pl=x.g[x.code==='b'?'bp':'rp'];if(!pl)continue;x.g._st[x.code==='b'?2:3].forEach((p,i)=>{if(pl[i])kc[pl[i]]=(kc[pl[i]]||0)+(p[PF.k]||0)})}
+    const e=Object.entries(kc).sort((a,b)=>b[1]-a[1])[0];if(e)killer=e}
+  const card=(k,v,s,img)=>`<div class="card scard">${img||''}<div class="sk">${k}</div><div class="sv2">${v}</div><div class="ss">${s}</div></div>`;
+  return `<div class="scards">
+    ${card('시즌 성적',veil?'<span class="muted">가림</span>':`${t.w}승 ${t.l}패`,veil?'결과 가림 중':`승률 ${Math.round(t.w/(t.w+t.l)*100)}% · ${t.games.length}경기`)}
+    ${card('써 본 챔피언',`${uniq}개`,ur?`${esc(t.league)} ${lu.length}팀 중 ${ur}위 (평균 ${Math.round(avg(lu))}개)`:'')}
+    ${top?card('가장 많이 쓴 챔피언',esc(CH[+top[0]].ko),`${top[1]}경기${veil?'':` · 승률 ${Math.round((win[top[0]]||0)/top[1]*100)}%`}`,`<img class="simg" src="${CH[+top[0]].icon}" alt="" width="56" height="56">`):''}
+    ${killer?card('킬이 가장 많은 선수',esc(killer[0]),`시즌 ${killer[1]}킬`):''}
+  </div>`;
+}
+/* 최근 흐름: 경기마다 15분 골드 차이 막대 + 승패 + 상대 */
+function formChart(t){
+  const veil=S.spoiler&&!S.statsRevealed,list=t.games.slice(-18);
+  if(veil)return `<section class="card story"><h2 class="ptitle">최근 흐름</h2><div class="stat veilbox" style="margin-top:8px"><div class="k">결과 가림 중</div><p style="margin:4px 0 10px">경기별 골드 차이와 승패는 결과를 알려 줘서 가렸어요.</p><button class="btn" type="button" data-stats>통계 보기</button></div></section>`;
+  let prev='';
+  const cols=list.map(({g,code})=>{
+    const v=g.gd==null?null:(code==='b'?g.gd:-g.gd),win=g.w===code,o=code==='b'?g.rt:g.bt;
+    const h=v==null?0:Math.max(3,Math.min(Math.abs(v)/5000,1)*54),dl=g.d!==prev?fmtDate(g.d).replace('월 ','/').replace('일',''):'';prev=g.d;
+    const lab=v==null?'':(v>0?'+':v<0?'−':'')+(Math.abs(v)/1000).toFixed(1)+'k';
+    return `<button type="button" class="fcol" data-open="${g.id}" title="${fmtDate(g.d)} ${g.s}세트 vs ${esc(tn(o))} · 15분 골드 차이 ${fmtGd(v)} · ${win?'승':'패'}">
+      <span class="fd">${dl}</span>
+      <span class="fbar"><i class="${win?'w':'l'} ${v!=null&&v<0?'dn':'up'}" style="height:${h}px"></i>${lab?`<em class="${v<0?'dn':'up'}" style="${v<0?'top':'bottom'}:calc(50% + ${h+2}px)">${lab}</em>`:''}</span>
+      <span class="fo">${emblem(o,22)}</span><span class="fr ${win?'w':'l'}">${win?'승':'패'}</span></button>`;
+  }).join('');
+  return `<section class="card story"><h2 class="ptitle">최근 흐름 <span>최근 ${list.length}경기 · 막대는 15분 골드 차이</span></h2><div class="form">${cols}</div></section>`;
+}
+/* 챔피언 픽(승패, 경기 수 막대)과 밴(진영별) 표 */
+function teamChampTables(t){
+  const veil=S.spoiler&&!S.statsRevealed,cnt={},win={},role={};
+  for(const{g,code}of t.games)g[code].forEach((c,i)=>{if(c<0)return;cnt[c]=(cnt[c]||0)+1;if(g.w===code)win[c]=(win[c]||0)+1;const o=role[c]||(role[c]=[0,0,0,0,0]);o[i]++});
+  const picks=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,10),mx=picks.length?picks[0][1]:1;
+  const rt=c=>{const o=role[c],i=o.indexOf(Math.max(...o));return `<span class="rtag" style="color:${ROLE_COLORS[ROLES[i]]}">${ROLE_KO[ROLES[i]]}</span>`};
+  const pr=picks.map(([c,n])=>{const w=win[c]||0,wr=w/n*100;
+    return `<tr class="barrow" style="--w:${n/mx*100}%"><td>${nameCell(+c)}</td><td>${rt(c)}</td><td class="num">${veil?'':`<b class="${wr>=60?'pos':wr<=40?'neg':''}">${Math.round(wr)}%</b> <small class="muted">${w}승 ${n-w}패</small>`}</td><td class="num"><b>${n}</b></td></tr>`}).join('');
+  const kind=S.tbk||'against',bc={};
+  for(const{g,code}of t.games){const side=kind==='own'?code:opp(code);for(const c of g[side==='b'?'bb':'rb']){const o=bc[c]||(bc[c]={b:0,r:0});o[side]++}}
+  const bans=Object.entries(bc).sort((a,b)=>(b[1].b+b[1].r)-(a[1].b+a[1].r)).slice(0,10);
+  const nb=t.games.filter(x=>x.code===(kind==='own'?'b':'r')).length,nr=t.games.length-nb;   // 그 진영에서 밴할 기회가 있었던 경기 수
+  const br=bans.map(([c,o])=>{const n=o.b+o.r;
+    return `<tr><td>${nameCell(+c)}</td><td class="num"><b>${n}</b></td><td class="split"><div class="spl"><i class="bl" style="width:${o.b/n*100}%"></i><i class="rd" style="width:${o.r/n*100}%"></i></div><small><span class="bl">블루 ${o.b}</span> · <span class="rd">레드 ${o.r}</span></small></td></tr>`}).join('');
+  return `<section class="card story"><h2 class="ptitle">챔피언 <span>많이 쓴 순</span></h2>
+      <div class="tscroll" style="margin-top:6px"><table class="ptable ctable"><thead><tr><th>픽</th><th>포지션</th><th class="num">승률</th><th class="num">경기</th></tr></thead><tbody>${pr}</tbody></table></div>
+    </section>
+    <section class="card story"><h2 class="ptitle">밴</h2>
+      <div class="tabs" role="tablist" style="margin:6px 0 8px"><button role="tab" type="button" data-tbk="against" aria-selected="${kind==='against'}">상대가 밴한 챔피언</button><button role="tab" type="button" data-tbk="own" aria-selected="${kind==='own'}">우리가 밴한 챔피언</button></div>
+      <div class="tscroll" style="margin-top:0"><table class="ptable ctable"><thead><tr><th>챔피언</th><th class="num">밴</th><th>밴한 진영</th></tr></thead><tbody>${br}</tbody></table></div>
+      <p class="rel" style="margin:8px 0 0">${kind==='own'?`이 팀이 블루에서 ${nb}경기, 레드에서 ${nr}경기를 했어요.`:`상대 팀이 블루에서 ${nb}경기, 레드에서 ${nr}경기를 했어요.`} 피어리스라 같은 시리즈 뒤 세트에서는 밴할 챔피언이 달라져요.</p>
+    </section>`;
+}
+const nameCell=c=>`<span class="cname"><img src="${CH[c].icon}" alt="" width="30" height="30"><span>${esc(CH[c].ko)}</span></span>`;
 
 /* ---------- 내 팀(마이 팀 고르기 또는 팀 홈), 팀 페이지 ---------- */
 function teamPickList(){
@@ -991,7 +1054,7 @@ function teamPickList(){
 function renderTeams(){
   const box=$('#teams-box');if(!box)return;
   const id=S.myTeam!=null?TEAMIDX[S.myTeam]:null;
-  if(id!=null&&!S.changing){box.innerHTML=teamBody(TEAMS[id],true);return}
+  if(id!=null&&!S.changing){box.innerHTML=teamBody(TEAMS[id],true);formToEnd();return}
   const lgCnt={};TEAMS.forEach(t=>lgCnt[t.league]=(lgCnt[t.league]||0)+t.games.length);
   const lgs=Object.entries(lgCnt).sort((a,b)=>(b[0]==='LCK')-(a[0]==='LCK')||b[1]-a[1]).slice(0,8).map(x=>x[0]);
   box.innerHTML=`<div class="page-h"><h1>${id!=null?'마이 팀 바꾸기':'내 팀을 골라 주세요'}</h1><p class="muted">팀 엠블럼을 누르면 사이트가 그 팀의 색으로 바뀌고, 그 팀의 선수, 밴픽, 경기, 칼럼이 첫 화면에 모여요. 고른 팀은 이 브라우저에만 저장돼요.</p></div>
@@ -1007,6 +1070,7 @@ function renderTeam(id){
   const box=$('#team-box'),t=TEAMS[id];
   if(!t){box.innerHTML='<div class="card empty-state"><h2>찾는 팀이 없어요</h2><a class="btn" href="#teams">내 팀으로</a></div>';return}
   box.innerHTML=`<a class="chip" href="#teams">← 내 팀</a><div style="height:12px"></div>${teamBody(t,S.myTeam===t.name)}`;
+  formToEnd();
 }
 
 /* ---------- 챔피언 고르기 ---------- */
@@ -1050,6 +1114,7 @@ document.addEventListener('click',e=>{
   const cl=t.closest('[data-cl]');if(cl){S.cl=cl.dataset.cl;S.cn=20;renderChamps();return}
   const cp=t.closest('[data-cpt]');if(cp){S.cpt=cp.dataset.cpt;S.cn=20;renderChamps();return}
   const cr=t.closest('[data-cr]');if(cr){S.cr=cr.dataset.cr;S.cn=20;renderChamps();return}
+  const tbk=t.closest('[data-tbk]');if(tbk){S.tbk=tbk.dataset.tbk;if(!$('#view-team').hidden)renderTeam(S.team);else renderTeams();return}
   if(t.closest('[data-cmore]')){S.cn+=20;renderChamps();return}
   const cs=t.closest('[data-chsearch]');if(cs){const c=CH[+cs.dataset.chsearch],role=S.cr!=='all'?ROLES[+S.cr]:(c.roles[0]||'mid');
     setBoard({blue:{[role]:c.en}});S.leagues.clear();if(S.cl!=='all'&&LEAGUES.includes(S.cl))S.leagues.add(S.cl);S.shown=12;location.hash='search';update();window.scrollTo({top:0});return}
