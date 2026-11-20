@@ -311,6 +311,50 @@ a{color:inherit}
 .pop.used:after{content:"✕";position:absolute;inset:0;display:grid;place-items:center;color:var(--fg);font-size:.95rem;font-weight:800}
 .bn{display:flex;gap:3px;flex-wrap:wrap}
 .bn img{border-radius:6px;filter:grayscale(1);opacity:.7}
+/* 내 팀, 경기 읽기 */
+.linkbtn{all:unset;cursor:pointer;font-weight:700;color:var(--accent)}
+.linkbtn:hover{text-decoration:underline}
+.linkbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.q{padding:11px 14px;border-radius:11px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font:inherit}
+.tcard{cursor:pointer;display:grid;gap:8px;padding:14px 16px;min-width:0}
+.tcard:hover{border-color:var(--accent)}
+.tmain{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.tvs{display:flex;align-items:center;gap:8px;font-size:.95rem;min-width:0;flex-wrap:wrap}
+.tvs b{font-size:1rem}
+.tic{position:relative}
+.tic img{border-radius:8px;display:block}
+.nw{position:absolute;left:50%;transform:translateX(-50%);bottom:-6px;font-style:normal;font-size:.58rem;font-weight:800;line-height:1;background:var(--accent);color:var(--accent-fg);padding:2px 5px;border-radius:99px;white-space:nowrap}
+.trow2{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.arc{font-size:.8rem;font-weight:800;padding:3px 11px;border-radius:99px}
+.arc.good{background:var(--win-soft);color:var(--win)}
+.arc.bad{background:var(--loss-soft);color:var(--loss)}
+.spark{flex:none}
+.arcl{margin:0;font-size:.9rem}
+.notes{margin:0;padding-left:1.1rem;font-size:.86rem;color:var(--muted);display:grid;gap:3px}
+.notes li::marker{color:var(--faint)}
+.teamhead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0 16px}
+.teamhead h1{margin:0 0 4px;font-size:1.6rem;letter-spacing:-.02em}
+.tchips{display:flex;flex-wrap:wrap;gap:8px}
+.tchip{display:inline-flex;border:1px solid var(--line);background:var(--surface);border-radius:99px;overflow:hidden}
+.tchip button{border:0;background:none;padding:7px 12px;font-size:.88rem}
+.tchip button small{color:var(--faint);margin-left:2px}
+.tchip button:hover{background:var(--surface-2)}
+.tchip .go{padding:7px 11px 7px 8px;color:var(--muted);border-left:1px solid var(--line)}
+.tchip.on{border-color:var(--accent);background:var(--accent-soft)}
+.tchip.on button:first-child{color:var(--accent);font-weight:700}
+.drow2{display:grid;grid-template-columns:170px 1fr 120px;align-items:center;gap:10px;font-size:.85rem;padding:4px 0}
+.dbar2{position:relative;height:12px;background:var(--surface-2);border-radius:99px}
+.dbar2 i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.dbar2 i.good{background:var(--win)}
+.dbar2 i.bad{background:var(--loss)}
+.dbar2 b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--fg);border-radius:2px}
+.dv{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.dv small{color:var(--muted);font-weight:500}
+.sig{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.sigi{display:flex;flex-direction:column;align-items:center;gap:3px}
+.sigi img{border-radius:9px;display:block}
+.sigi small{font-size:.72rem;color:var(--muted);font-weight:700}
+@media (max-width:640px){.drow2{grid-template-columns:118px 1fr 92px}}
 /* 칼럼 글 */
 .art{max-width:760px;margin:0 auto}
 .art header{margin:18px 0 22px}
@@ -382,8 +426,9 @@ a.chip{text-decoration:none;display:inline-block}
 
 <div class="wrap">
   <header class="top">
-    <a class="logo" href="#search"><i></i>Draft Finder</a>
+    <a class="logo" href="#teams"><i></i>Draft Finder</a>
     <nav class="nav" aria-label="메뉴">
+      <a href="#teams" id="nav-teams">내 팀</a>
       <a href="#search" id="nav-search">밴픽 찾기</a>
       <a href="#series" id="nav-series">피어리스 복기</a>
       <a href="#columns" id="nav-columns">칼럼</a>
@@ -392,7 +437,15 @@ a.chip{text-decoration:none;display:inline-block}
     <span class="demo" id="demo-pill">데모 데이터 · 실제 경기가 아니에요</span>
   </header>
 
-  <main id="view-search">
+  <main id="view-teams" hidden>
+    <div id="teams-box"></div>
+  </main>
+
+  <main id="view-team" hidden>
+    <div id="team-box"></div>
+  </main>
+
+  <main id="view-search" hidden>
     <section class="hero card">
       <h1>이 밴픽, 다른 경기에서는 어떻게 흘러갔을까?</h1>
       <p class="lede">챔피언을 눌러 채워 보세요. 한 명만 골라도 리그 상관없이 비슷한 경기를 찾아 줘요.</p>
