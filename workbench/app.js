@@ -859,8 +859,15 @@ function renderChamps(){
   const box=$('#champs-box');if(!box)return;
   const L=champLeagues(),last=PATCHES[PATCHES.length-1],last3=new Set(PATCHES.slice(-3));
   const pOk=g=>S.cpt==='all'||(S.cpt==='latest'?g.p===last:S.cpt==='last3'?last3.has(g.p):g.p===S.cpt.slice(2));   // 'p:16.20'처럼 패치 하나를 고를 수 있다
-  const gs=G.filter(g=>(S.cl==='all'||g.lg===S.cl)&&pOk(g));
-  const pc={};G.forEach(g=>{if(S.cl==='all'||g.lg===S.cl)pc[g.p]=(pc[g.p]||0)+1});
+  // 대회 구분: OP.GG 등은 LCK 컵 같은 컵 대회를 정규 시즌과 따로 센다. 기본은 컵 제외
+  const lgGames=G.filter(g=>S.cl==='all'||g.lg===S.cl),isCup=g=>/cup/i.test(g.sp||'');
+  const hasCup=lgGames.some(isCup),splits=[...new Set(lgGames.map(g=>g.sp).filter(Boolean))];
+  if(S.csp==null)S.csp='nocup';
+  if(S.csp==='nocup'&&!hasCup)S.csp='all';
+  if(S.csp.startsWith('s:')&&!splits.includes(S.csp.slice(2)))S.csp=hasCup?'nocup':'all';
+  const spOk=g=>S.csp==='all'||(S.csp==='nocup'?!isCup(g):S.csp==='po'?g.po:S.csp==='reg'?!g.po&&!isCup(g):g.sp===S.csp.slice(2));
+  const gs=lgGames.filter(g=>pOk(g)&&spOk(g));
+  const pc={};lgGames.forEach(g=>{if(spOk(g))pc[g.p]=(pc[g.p]||0)+1});
   const plist=PATCHES.slice().reverse().filter(p=>pc[p]);
   const ri=S.cr==='all'?null:+S.cr,n=gs.length;
   const pk={},wn={},rl={},bn={};
@@ -881,9 +888,11 @@ function renderChamps(){
   const roleBar=`<div class="rolebar" role="tablist"><button role="tab" type="button" data-cr="all" aria-selected="${S.cr==='all'}">모든 라인</button>${ROLES.map((r,i)=>`<button role="tab" type="button" data-cr="${i}" aria-selected="${S.cr===String(i)}"><em class="dot" style="background:${ROLE_COLORS[r]}"></em>${ROLE_KO[r]}</button>`).join('')}</div>`;
   // 표 위 제목 줄: 리그·패치·경기 수 + 패치 고르기 + 보기 전환
   const patchSel=`<select class="sel" id="cpt-one" aria-label="패치"><option value="all" ${S.cpt==='all'?'selected':''}>전체 패치</option><option value="last3" ${S.cpt==='last3'?'selected':''}>최근 3개 패치</option><option value="latest" ${S.cpt==='latest'?'selected':''}>최신 패치 ${esc(last)}</option>${plist.map(p=>`<option value="p:${esc(p)}" ${S.cpt==='p:'+p?'selected':''}>${esc(p)} (${pc[p]}경기)</option>`).join('')}</select>`;
+  const spName={all:'전체 대회',nocup:'컵 대회 제외',reg:'정규 시즌',po:'플레이오프'};
+  const splitSel=`<select class="sel" id="csp-one" aria-label="대회 구분"><option value="all" ${S.csp==='all'?'selected':''}>전체 대회</option>${hasCup?`<option value="nocup" ${S.csp==='nocup'?'selected':''}>컵 대회 제외</option>`:''}<option value="reg" ${S.csp==='reg'?'selected':''}>정규 시즌</option><option value="po" ${S.csp==='po'?'selected':''}>플레이오프</option>${splits.map(x=>`<option value="s:${esc(x)}" ${S.csp==='s:'+x?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
   const view=S.cview||'rank';
   const viewTabs=`<div class="tabs" role="tablist"><button role="tab" type="button" data-cview="rank" aria-selected="${view==='rank'}">픽·밴 순위</button><button role="tab" type="button" data-cview="win" aria-selected="${view==='win'}">승률</button></div>`;
-  const head=`<div class="chead"><div class="chead-t"><b>${esc(lgName)}</b><span>${ptName} · ${n.toLocaleString('ko-KR')}경기${ri!=null?` · ${ROLE_KO[ROLES[ri]]}`:''}</span></div>${patchSel}${viewTabs}</div>`;
+  const head=`<div class="chead"><div class="chead-t"><b>${esc(lgName)}</b><span>${esc(spName[S.csp]||S.csp.slice(2))} · ${ptName} · ${n.toLocaleString('ko-KR')}경기${ri!=null?` · ${ROLE_KO[ROLES[ri]]}`:''}</span></div>${splitSel}${patchSel}${viewTabs}</div>`;
   let body='';
   if(!n)body='<div class="card empty-state"><h2>조건에 맞는 경기가 없어요</h2></div>';
   else if(view==='rank'){
@@ -893,10 +902,10 @@ function renderChamps(){
     const pRows=P.slice(0,S.cn).map(([c,v],i)=>`<tr><td class="rk">${pr[i]}</td><td>${nm(+c)}</td><td>${roleTag(c)}</td><td class="num"><b>${v}</b></td><td class="num">${(v/n*100).toFixed(1)}%</td></tr>`).join('');
     const bRows=B.slice(0,S.cn).map(([c,v],i)=>`<tr><td class="rk">${br[i]}</td><td>${nm(+c)}</td><td class="num"><b>${v}</b></td><td class="num">${(v/n*100).toFixed(1)}%</td></tr>`).join('');
     body=`<div class="ctwo">
-      <section class="card ctab"><h2>픽 순위</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th>포지션</th><th class="num">픽</th><th class="num" title="고른 경기 중 이 챔피언이 나온 경기의 비율">픽률</th></tr></thead><tbody>${pRows}</tbody></table></section>
-      <section class="card ctab"><h2>밴 순위</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th class="num">밴</th><th class="num" title="고른 경기 중 이 챔피언이 밴된 경기의 비율">밴률</th></tr></thead><tbody>${bRows}</tbody></table></section></div>
+      <section class="card ctab"><h2>픽 순위</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th>포지션</th><th class="num">픽</th><th class="num" title="고른 경기 중 이 챔피언이 나온 경기의 비율 (OP.GG의 Rate는 전체 픽 수 대비라 약 10분의 1)">픽률 <small>경기 대비</small></th></tr></thead><tbody>${pRows}</tbody></table></section>
+      <section class="card ctab"><h2>밴 순위</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th class="num">밴</th><th class="num" title="고른 경기 중 이 챔피언이 밴된 경기의 비율 (OP.GG의 Rate는 전체 밴 수 대비)">밴률 <small>경기 대비</small></th></tr></thead><tbody>${bRows}</tbody></table></section></div>
       ${Math.max(P.length,B.length)>S.cn?`<button class="more" type="button" data-cmore>더 보기</button>`:''}
-      <p class="rel">픽률·밴률: 고른 경기 중 몇 %에서 나왔는지. 포지션을 고르면 밴은 그 포지션을 주로 맡는 챔피언만 셉니다.</p>`;
+      <p class="rel">픽률·밴률은 경기 대비(고른 경기 중 몇 %에서 나왔는지)예요. OP.GG의 Rate는 전체 픽·밴 수 대비라 숫자가 약 10분의 1이에요. 기본으로 LCK 컵 같은 컵 대회는 빼고 셉니다. 포지션을 고르면 밴은 그 포지션을 주로 맡는 챔피언만 셉니다.</p>`;
   }else{
     // 승률: 0~100% 막대, 50% 기준선. 픽이 적은 챔피언은 뺀다
     const minN=Math.max(10,Math.round(n*0.01));
@@ -1333,7 +1342,7 @@ document.addEventListener('click',e=>{
   const tl=t.closest('[data-tlg]');if(tl){S.tlg=tl.dataset.tlg;renderTeams();return}
   if(t.closest('[data-tmore]')){S.tMore+=12;if(!$('#view-team').hidden)renderTeam(S.team);else renderTeams();return}
   if(t.closest('[data-stats]')){S.statsRevealed=true;refresh();return}
-  const cl=t.closest('[data-cl]');if(cl){S.cl=cl.dataset.cl;S.cn=20;renderChamps();return}
+  const cl=t.closest('[data-cl]');if(cl){S.cl=cl.dataset.cl;S.csp=null;S.cn=20;renderChamps();return}
   const cp=t.closest('[data-cpt]');if(cp){S.cpt=cp.dataset.cpt;S.cn=20;renderChamps();return}
   const cr=t.closest('[data-cr]');if(cr){S.cr=cr.dataset.cr;S.cn=20;renderChamps();return}
   const tt=t.closest('[data-ttab]');if(tt){S.ttab=tt.dataset.ttab;S.tMore=12;if(!$('#view-team').hidden)renderTeam(S.team);else renderTeams();return}
@@ -1389,8 +1398,9 @@ document.addEventListener('keydown',e=>{
 MENUS.forEach(k=>$('#dd-'+k).onclick=e=>{e.stopPropagation();toggleMenu(k)});
 $('#reset').onclick=()=>{S.blue.fill(-1);S.red.fill(-1);S.shown=12;update()};
 $('#p-q').addEventListener('input',renderPicker);
-document.addEventListener('change',e=>{if(e.target&&e.target.id==='cl-more'&&e.target.value){S.cl=e.target.value;S.cn=20;renderChamps()}
-  if(e.target&&e.target.id==='cpt-one'&&e.target.value){S.cpt=e.target.value;S.cn=20;renderChamps()}});
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='cl-more'&&e.target.value){S.cl=e.target.value;S.csp=null;S.cn=20;renderChamps()}
+  if(e.target&&e.target.id==='cpt-one'&&e.target.value){S.cpt=e.target.value;S.cn=20;renderChamps()}
+  if(e.target&&e.target.id==='csp-one'&&e.target.value){S.csp=e.target.value;S.cpt='all';S.cn=20;renderChamps()}});
 document.addEventListener('input',e=>{if(e.target&&e.target.id==='team-q'){S.tq=e.target.value;const el=$('#team-pick');if(el)el.innerHTML=teamPickList()}});
 $('#p-close').onclick=closePicker;
 $('#picker').addEventListener('click',e=>{

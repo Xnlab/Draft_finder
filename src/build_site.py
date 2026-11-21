@@ -93,6 +93,7 @@ def game_records(df: pd.DataFrame, idx: dict) -> list[dict]:
             "bb": [idx[x] for x in d["blue_bans"]], "rb": [idx[x] for x in d["red_bans"]],
             "inc": not bool(d["data_complete"]),
             "sid": int(d["series_id"]), "sg": int(d["series_games"]), "so": bool(d["series_ok"]),
+            "sp": d.get("split") if isinstance(d.get("split"), str) else None, "po": bool(d.get("playoffs") or False),
         }
         if has_players:
             rec["bp"] = [x if isinstance(x, str) else "" for x in players("blue")]
