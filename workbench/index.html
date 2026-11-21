@@ -878,7 +878,9 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
 .sd-lab{font-size:.7rem;font-weight:800;color:var(--muted);margin-right:4px}
 .sd-ban{position:relative;display:block}
 .sd-ban img{display:block;border-radius:6px;filter:grayscale(.55);opacity:.9}
-.sd-ban:after{content:"";position:absolute;left:-2px;right:-2px;top:50%;border-top:2px solid var(--loss);transform:rotate(-35deg)}
+.sd-ban:after,.tile.ban:after,.tile-key.ban:after{content:"✕";position:absolute;inset:0;display:grid;place-items:center;color:var(--loss);font-weight:900;font-size:1.25rem;line-height:1;text-shadow:0 0 2px var(--surface),0 0 3px var(--surface)}
+.tile.ban:after{font-size:1.15rem}
+.tile-key.ban{position:relative}.tile-key.ban:after{font-size:.7rem}
 .sd-picks{display:flex;gap:8px;flex-wrap:wrap}
 .sd-pk{display:flex;flex-direction:column;align-items:center;gap:3px;width:54px}
 .sd-pk img{border-radius:9px;display:block}

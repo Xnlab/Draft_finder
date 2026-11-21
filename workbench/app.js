@@ -431,17 +431,18 @@ function seriesDetail(s){
       <div class="sd-bans"><span class="sd-lab">밴</span>${bans}</div><div class="sd-picks">${picks}</div></div>`;
   };
   const setCard=`<section class="card sd" data-open="${g.id}"><div class="gh"><span class="lg">${n}세트</span><span>${fmtDate(g.d)} · 패치 ${esc(g.p)}</span></div>${side('b')}${side('r')}</section>`;
+  const banned=new Set(g.bb.concat(g.rb));
   /* 챔피언 풀: 이번 세트에 소진된 챔피언은 색 그대로 + 세트 번호 표시, 앞 세트에 소진된 챔피언은 흐리게 */
   const pool=ROLES.map(r=>{
     const list=CH.filter(c=>c.roles[0]===r).sort((a,b)=>b.n-a.n);
-    return `<div class="pg"><h6 style="color:${ROLE_COLORS[r]}">${ROLE_KO[r]} <small>${list.filter(c=>!con.has(c.id)).length}/${list.length}</small></h6><div class="pt">${list.map(c=>{const u=con.get(c.id),now=u&&u.set===n;return `<div class="tile ${u?(now?'now':'used'):''}" title="${esc(c.ko)}${u?` · ${u.set}세트에 소진`:''}"><img src="${c.icon}" alt="" width="30" height="30" loading="lazy">${now?`<b>${n}</b>`:''}</div>`}).join('')}</div></div>`;
+    return `<div class="pg"><h6 style="color:${ROLE_COLORS[r]}">${ROLE_KO[r]} <small>${list.filter(c=>!con.has(c.id)).length}/${list.length}</small></h6><div class="pt">${list.map(c=>{const u=con.get(c.id),now=u&&u.set===n,bn=!now&&banned.has(c.id);return `<div class="tile ${now?'now':bn?'used ban':u?'used':''}" title="${esc(c.ko)}${now||u&&!bn?` · ${u.set}세트에 소진`:''}${bn?` · ${n}세트에 밴`:''}"><img src="${c.icon}" alt="" width="30" height="30" loading="lazy">${now?`<b>${n}</b>`:''}</div>`}).join('')}</div></div>`;
   }).join('');
   return `<button class="chip" type="button" data-sback>← 시리즈 목록</button>
     <div class="sd-top"><h1>${esc(tn(s.A))} <span class="muted">vs</span> ${esc(tn(s.B))}</h1><span class="muted">${esc(s.league)} · ${fmtDate(s.date)}</span>${score}</div>
     <div class="tabs" role="tablist" style="flex-wrap:wrap;margin-bottom:14px">${tabs}</div>
     ${setCard}
     <section class="card story"><div class="tpanels">${teamPanelHtml(s,s.A,n)}${teamPanelHtml(s,s.B,n)}</div>
-      <div class="lgd" style="margin-top:18px"><span><i class="tile-key"></i>사용 가능</span><span><i class="tile-key used"></i>앞 세트에 소진</span><span><i class="tile-key now"></i>이번 세트에 소진</span></div>
+      <div class="lgd" style="margin-top:18px"><span><i class="tile-key"></i>사용 가능</span><span><i class="tile-key used"></i>앞 세트에 소진</span><span><i class="tile-key now"></i>이번 세트에 소진</span><span><i class="tile-key used ban"></i>이번 세트에 밴</span></div>
       <div class="pool">${pool}</div></section>`;
 }
 
