@@ -416,48 +416,33 @@ function seriesDetail(s){
   const sp=seriesVeil(s),k=s.k;
   const maxShown=sp?Math.min(S.sShown,k):k;
   if(S.sSet>maxShown)S.sSet=maxShown;
-  const n=S.sSet,con=consumedAfter(s,n);
-  const tabs=[0,...Array.from({length:maxShown},(_,i)=>i+1)].map(i=>`<button role="tab" type="button" data-sset-tab="${i}" aria-selected="${n===i}">${i===0?'시작 전':i+'세트 후'}</button>`).join('')
+  if(S.sSet<1)S.sSet=1;
+  const n=S.sSet,con=consumedAfter(s,n),g=s.games[n-1];
+  const tabs=Array.from({length:maxShown},(_,i)=>i+1).map(i=>`<button role="tab" type="button" data-sset-tab="${i}" aria-selected="${n===i}">${i}세트</button>`).join('')
     +(sp?`<button class="chip" type="button" data-snext>다음 세트 열기 ▸</button>`:'');
-  const score=sp?`<span class="muted">결과 가림 중</span> <button class="btn" type="button" data-sreveal>모두 공개</button>`
-    :`<b>${esc(s.A)} ${s.wA} : ${s.wB} ${esc(s.B)}</b>`;
-
-  const teamPanel=name=>teamPanelHtml(s,name,n);
-
-  /* 2) 챔피언 풀: 사용 가능 / 이미 소진 / 이번 세트에 소진 */
-  const now=new Set([...con].filter(([,u])=>u.set===n).map(([id])=>id));
+  const score=sp?`<button class="btn" type="button" data-sreveal>결과 보기</button>`:`<b>${esc(s.A)} ${s.wA} : ${s.wB} ${esc(s.B)}</b>`;
+  /* 이번 세트: 진영별 밴 → 픽을 한눈에 */
+  const veil=hidden(g.id)&&sp;
+  const side=code=>{
+    const name=code==='b'?g.bt:g.rt,won=!veil&&g.w===code;
+    const bans=g[code==='b'?'bb':'rb'].map(c=>`<span class="sd-ban" title="밴: ${esc(CH[c].ko)}"><img src="${CH[c].icon}" alt="${esc(CH[c].ko)}" width="30" height="30"></span>`).join('');
+    const picks=g[code].map((c,i)=>c<0?`<div class="sd-pk"><span class="tph">?</span><small>${ROLE_KO[ROLES[i]]}</small></div>`:`<div class="sd-pk" title="${esc(CH[c].ko)}"><img src="${CH[c].icon}" alt="" width="44" height="44"><small>${esc(CH[c].ko)}</small></div>`).join('');
+    return `<div class="sd-side ${code} ${won?'won':''}"><div class="sd-name"><b>${esc(tn(name))}</b><small>${code==='b'?'블루':'레드'}</small>${won?'<em>승</em>':''}</div>
+      <div class="sd-bans"><span class="sd-lab">밴</span>${bans}</div><div class="sd-picks">${picks}</div></div>`;
+  };
+  const setCard=`<section class="card sd" data-open="${g.id}"><div class="gh"><span class="lg">${n}세트</span><span>${fmtDate(g.d)} · 패치 ${esc(g.p)}</span></div>${side('b')}${side('r')}</section>`;
+  /* 챔피언 풀: 이번 세트에 소진된 챔피언은 색 그대로 + 세트 번호 표시, 앞 세트에 소진된 챔피언은 흐리게 */
   const pool=ROLES.map(r=>{
     const list=CH.filter(c=>c.roles[0]===r).sort((a,b)=>b.n-a.n);
-    return `<div class="pg"><h6 style="color:${ROLE_COLORS[r]}">${ROLE_KO[r]} <small>${list.filter(c=>!con.has(c.id)).length}/${list.length}</small></h6><div class="pt">${list.map(c=>{const u=con.get(c.id);return `<div class="tile ${u?'used':''} ${u&&now.has(c.id)?'now':''}" title="${esc(c.ko)}${u?` · ${u.set}세트에 소진`:''}"><img src="${c.icon}" alt="" width="30" height="30" loading="lazy"></div>`}).join('')}</div></div>`;
+    return `<div class="pg"><h6 style="color:${ROLE_COLORS[r]}">${ROLE_KO[r]} <small>${list.filter(c=>!con.has(c.id)).length}/${list.length}</small></h6><div class="pt">${list.map(c=>{const u=con.get(c.id),now=u&&u.set===n;return `<div class="tile ${u?(now?'now':'used'):''}" title="${esc(c.ko)}${u?` · ${u.set}세트에 소진`:''}"><img src="${c.icon}" alt="" width="30" height="30" loading="lazy">${now?`<b>${n}</b>`:''}</div>`}).join('')}</div></div>`;
   }).join('');
-
-  const pop=popBlockHtml(con);
-  const trend=POPTREND?`<p class="rel" style="margin:10px 0 0">세트가 늘수록 뽑히는 챔피언의 인기 순위가 내려가요. 4세트 이상 시리즈에서 포지션 안 평균 순위는 ${POPTREND.map(t=>`${t.n}세트 ${t.avg.toFixed(1)}위`).join(' → ')}예요.</p>`:'';
-
-  /* 4) 세트별 밴픽 (진영별, 밴 포함) */
-  const sets=s.games.slice(0,n).map(g=>{
-    const veil=hidden(g.id)&&sp;
-    const team=(code)=>{
-      const name=code==='b'?g.bt:g.rt;
-      return `<div class="gt ${code} ${(!veil&&g.w===code)?'won':''}"><div class="gn"><b>${esc(name)}</b><small>${code==='b'?'블루':'레드'} 진영</small>${(!veil&&g.w===code)?'<small class="w">승</small>':''}</div><div class="pks">${g[code].map(c=>c<0?`<div class="pk"><div class="pw"><div class="ph">?</div></div></div>`:`<div class="pk" title="${esc(CH[c].ko)}"><div class="pw"><img src="${CH[c].icon}" alt="" width="40" height="40"></div><span>${esc(CH[c].ko)}</span></div>`).join('')}</div></div>`;
-    };
-    const bans=(g.bb.concat(g.rb)).map(c=>`<img src="${CH[c].icon}" alt="" title="밴: ${esc(CH[c].ko)}" width="22" height="22">`).join('');
-    return `<article class="card game" data-open="${g.id}" tabindex="0"><div class="gh"><span class="lg">${g.s}세트</span><span>${fmtDate(g.d)} · 패치 ${esc(g.p)}</span>${sp?'':`<span class="gres win">${esc(g.w==='b'?g.bt:g.rt)} 승</span>`}</div>${team('b')}${team('r')}<div class="gf"><span class="muted">밴</span><span class="bn">${bans}</span></div></article>`;
-  }).join('');
-
   return `<button class="chip" type="button" data-sback>← 시리즈 목록</button>
-    <div class="page-h" style="margin-top:12px"><h1>${esc(s.A)} <span class="muted">vs</span> ${esc(s.B)}</h1><p class="muted" style="margin:0">${esc(s.league)} · ${fmtDate(s.date)} · 패치 ${esc(s.games[0].p)} · ${score}${!s.ok?' · 시리즈 묶기가 불확실한 경기예요':''}</p></div>
+    <div class="sd-top"><h1>${esc(tn(s.A))} <span class="muted">vs</span> ${esc(tn(s.B))}</h1><span class="muted">${esc(s.league)} · ${fmtDate(s.date)}</span>${score}</div>
     <div class="tabs" role="tablist" style="flex-wrap:wrap;margin-bottom:14px">${tabs}</div>
-    ${sp&&S.sEnd?'<p class="muted">이 시리즈는 여기까지였어요.</p>':''}
-    <section class="card story"><h2>${n===0?'시리즈가 시작되기 전, 모든 챔피언을 쓸 수 있어요':`${n}세트까지 챔피언 ${con.size}명이 소진됐어요`}</h2>
-      <p>피어리스에서는 이미 뽑힌 챔피언을 같은 시리즈에서 다시 뽑을 수 없어요. 밴은 소진되지 않아요.</p>
-      ${n>0?`<h5 class="sub5">팀별로 쓴 챔피언</h5><div class="tpanels">${teamPanel(s.A)}${teamPanel(s.B)}</div>`:''}
-      <h5 class="sub5">전체 챔피언 풀</h5>
-      <div class="lgd"><span><i class="tile-key"></i>사용 가능</span><span><i class="tile-key used"></i>이미 소진</span><span><i class="tile-key used now"></i>이번 세트에 소진</span></div>
-      <div class="pool">${pool}</div>
-      ${n>0?`<h5 class="sub5">인기 픽은 얼마나 남았을까 <span class="muted" style="font-weight:500">· 포지션별 시즌 인기 상위 ${POPTOP.top.length}명 중 ${pop.used}/${pop.total}명 소진</span></h5><div class="use">${pop.rows}</div>${trend}`:''}
-    </section>
-    ${n>0?`<div class="section-title"><h2>세트별 밴픽</h2></div><div class="games">${sets}</div>`:''}`;
+    ${setCard}
+    <section class="card story"><div class="tpanels">${teamPanelHtml(s,s.A,n)}${teamPanelHtml(s,s.B,n)}</div>
+      <div class="lgd" style="margin-top:18px"><span><i class="tile-key"></i>사용 가능</span><span><i class="tile-key used"></i>앞 세트에 소진</span><span><i class="tile-key now"></i>이번 세트에 소진</span></div>
+      <div class="pool">${pool}</div></section>`;
 }
 
 /* ---------- 칼럼 ---------- */

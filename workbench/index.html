@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="claude:viewport-fit-sides" content="cover">
-<title>Draft Finder 작업실</title>
+<title>DIF 작업실</title>
 <style>
 /* 레이아웃: 위에서 아래로 한 흐름. 밴픽 보드(입력) -> 조건 -> 한 문장 요약 -> 근거 경기 카드. */
 :root{
@@ -863,11 +863,35 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
 .wr-head{min-height:24px}
 .rk{color:var(--faint);font-weight:700}
 @media (max-width:640px){.wr-row,.wr-head{grid-template-columns:30px minmax(0,120px) minmax(0,1fr) 76px!important}.ctbl col.c-ch{width:auto}}
+/* 피어리스 복기: 이번 세트 밴픽 카드, 소진 표시 */
+.sd-top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:14px 0 12px}
+.sd-top h1{margin:0;font-size:1.5rem;letter-spacing:-.02em}
+.sd{padding:14px 16px;margin-bottom:16px}
+.sd .gh{margin-bottom:8px}
+.sd-side{display:grid;grid-template-columns:150px minmax(0,auto) minmax(0,1fr);gap:16px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--surface-2);border-left:4px solid var(--blue);margin-top:8px}
+.sd-side.r{border-left-color:var(--red)}
+.sd-side.won{background:var(--win-soft)}
+.sd-name{display:flex;flex-direction:column;gap:2px;min-width:0}
+.sd-name small{font-size:.72rem;color:var(--muted);font-weight:700}
+.sd-name em{font-style:normal;font-size:.74rem;font-weight:800;color:var(--win)}
+.sd-bans{display:flex;align-items:center;gap:4px}
+.sd-lab{font-size:.7rem;font-weight:800;color:var(--muted);margin-right:4px}
+.sd-ban{position:relative;display:block}
+.sd-ban img{display:block;border-radius:6px;filter:grayscale(.55);opacity:.9}
+.sd-ban:after{content:"";position:absolute;left:-2px;right:-2px;top:50%;border-top:2px solid var(--loss);transform:rotate(-35deg)}
+.sd-picks{display:flex;gap:8px;flex-wrap:wrap}
+.sd-pk{display:flex;flex-direction:column;align-items:center;gap:3px;width:54px}
+.sd-pk img{border-radius:9px;display:block}
+.sd-pk small{font-size:.7rem;color:var(--muted);max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile.now{border-color:transparent;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--hl)}
+.tile.now b{position:absolute;right:-6px;top:-6px;min-width:16px;height:16px;border-radius:99px;background:var(--hl);color:#111;font-size:.62rem;font-weight:900;display:grid;place-items:center;padding:0 3px}
+.tile-key.now{border-color:var(--hl);background:var(--surface-2);box-shadow:0 0 0 1px var(--hl)}
+@media (max-width:760px){.sd-side{grid-template-columns:minmax(0,1fr)}}
 </style>
 
 <div class="wrap">
   <header class="top">
-    <a class="logo" href="#teams">Draft Finder</a>
+    <a class="logo" href="#teams">DIF</a>
     <nav class="nav" aria-label="메뉴">
       <a href="#teams" id="nav-teams">내 팀</a>
       <a href="#champs" id="nav-champs">챔피언</a>
