@@ -21,6 +21,7 @@
     @series pick=longest set=4
     @game nth=40            (또는 id=게임ID)
     @team name="Gen.G"      (팀 지표를 리그 평균·순위와 비교. show=gd15,barS 로 고른 지표만 카드로)
+    @rank stat=barS team="Gen.G"                (지표 하나로 리그 전체 팀 순위표, 그 팀 강조)
     @form team="Gen.G" n=10 until=2026-11-14   (최근 n경기 15분 골드 차이와 승패)
     @flow team="Gen.G" last=1                  (그 팀의 최근 경기 흐름. id=게임ID로 경기를 지정할 수도 있다)
 
@@ -36,7 +37,7 @@ import re
 from pathlib import Path
 
 POSITIONS = ["top", "jng", "mid", "bot", "sup"]
-EMBEDS = {"search", "series", "game", "team", "form", "flow"}
+EMBEDS = {"search", "series", "game", "team", "form", "flow", "rank"}
 KINDS = {"column", "note"}
 # @team show= 에 쓸 수 있는 지표 키 (workbench/app.js의 EARLY, WHOLE과 같다)
 TEAM_METRICS = ["gd15", "xpd15", "csd15", "fb", "ft", "plt", "grub", "her",
@@ -128,6 +129,17 @@ def _check_embed(kind: str, args: dict) -> dict:
             if bad or not keys:
                 raise ColumnError(f"@team show에 알 수 없는 지표 {bad} (쓸 수 있는 것: {', '.join(TEAM_METRICS)})")
             out["show"] = keys
+        return out
+    if kind == "rank":
+        _only(kind, args, {"stat", "team", "league"})
+        if args.get("stat") not in TEAM_METRICS:
+            raise ColumnError(f"@rank에는 stat=지표가 필요합니다 (쓸 수 있는 것: {', '.join(TEAM_METRICS)})")
+        out = {"stat": args["stat"]}
+        for k in ("team", "league"):
+            if args.get(k):
+                out[k] = args[k]
+        if "team" not in out and "league" not in out:
+            raise ColumnError('@rank에는 team="팀" 또는 league=LCK 중 하나가 필요합니다')
         return out
     if kind == "form":
         _only(kind, args, {"team", "n", "until"})

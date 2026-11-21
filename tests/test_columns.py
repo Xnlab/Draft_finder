@@ -56,6 +56,8 @@ def test_parses_front_matter_paragraphs_and_embeds():
     ("@game nth=abc", "숫자여야"),
     ("@search blue.mid=Azir games=20", "0~10"),
     ("@team name=T1 show=gd15,foo", "알 수 없는 지표"),
+    ("@rank team=T1", "stat=지표"),
+    ("@rank stat=barS", "team=\"팀\" 또는 league"),
 ])
 def test_bad_embeds_give_clear_errors_with_location(body, msg):
     text = "---\ntitle: t\ndate: 2026-01-01\n---\n본문\n\n" + body + "\n"
@@ -130,3 +132,9 @@ def test_team_filters_for_search_and_flow():
 def test_team_show_picks_metrics():
     c = parse_column('---\ntitle: t\ndate: 2026-01-01\n---\n@team name="Gen.G" show=gd15,barS', "x")
     assert c["blocks"][0] == {"type": "team", "name": "Gen.G", "show": ["gd15", "barS"]}
+
+
+def test_rank_box():
+    c = parse_column('---\ntitle: t\ndate: 2026-01-01\n---\n@rank stat=barS team="Gen.G"\n\n@rank stat=gd15 league=LPL', "x")
+    assert c["blocks"][0] == {"type": "rank", "stat": "barS", "team": "Gen.G"}
+    assert c["blocks"][1] == {"type": "rank", "stat": "gd15", "league": "LPL"}

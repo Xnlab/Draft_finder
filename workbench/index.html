@@ -768,6 +768,29 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
 .tm-l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tm-head .tm-l small{font-weight:500;color:var(--faint);margin-left:4px}
 @media (max-width:420px){.tm-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.tm-val b{font-size:1.4rem}.tm-row{grid-template-columns:34px minmax(0,1fr) 62px 62px;font-size:.8rem}}
+/* @rank: 지표 하나 리그 순위표 */
+.rk-list{display:flex;flex-direction:column}
+.rk-row{display:grid;grid-template-columns:24px minmax(0,210px) minmax(0,1fr) 64px;gap:10px;align-items:center;padding:6px 8px;border-top:1px solid var(--line);font-size:.86rem;border-radius:8px}
+.rk-row:first-child{border-top:0}
+.rk-row.me{background:var(--accent-soft);border-top-color:transparent}
+.rk-row.me+.rk-row{border-top-color:transparent}
+.rk-n{color:var(--faint);font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
+.rk-t{display:flex;align-items:center;gap:8px;min-width:0}
+.rk-t b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rk-t small{color:var(--faint);font-size:.7rem;white-space:nowrap}
+.rk-row.me .rk-t b{color:var(--accent)}
+.rk-bar{position:relative;height:12px}
+.rk-bar i{position:absolute;top:1px;bottom:1px;border-radius:3px;background:var(--faint);opacity:.55}
+.rk-row.me .rk-bar i{background:var(--accent);opacity:1}
+.rk-bar em{position:absolute;top:-5px;bottom:-5px;width:0}
+.rk-avg{border-left:2px dashed var(--muted)}
+.rk-base{border-left:1.5px solid var(--fg);opacity:.35}
+.rk-v{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}
+.rk-row:not(.me) .rk-v{font-weight:600;color:var(--muted)}
+.dbox p.rk-leg{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 0;font-size:.74rem;color:var(--muted)}
+.rk-leg i{display:inline-block;height:12px;width:0;margin-right:6px;vertical-align:-2px}
+.tm-def{text-decoration:underline dotted var(--faint);text-underline-offset:3px;cursor:help}
+@media (max-width:520px){.rk-row{grid-template-columns:20px minmax(0,110px) minmax(0,1fr) 52px;gap:6px;font-size:.8rem}.rk-t small{display:none}}
 </style>
 
 <div class="wrap">
