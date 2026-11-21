@@ -27,7 +27,7 @@
 값에 빈칸이 있으면 큰따옴표로 감싼다: name="Hanwha Life Esports".
 
 `@search` 인자: `blue.<포지션>=챔피언(영문)`, `red.<포지션>=...`, `sets=all|early|late`,
-`patch=all|latest|last3`, `leagues=LCK,LPL`, `pos=any|exact`.
+`patch=all|latest|last3`, `leagues=LCK,LPL`, `pos=any|exact`, `games=N`(경기 목록을 N개까지 함께 보여 줌, 기본 0).
 `@series` 인자: `pick=longest|latest`, `set=N`(몇 세트 후 상태를 보여 줄지).
 """
 from __future__ import annotations
@@ -88,6 +88,11 @@ def _check_embed(kind: str, args: dict) -> dict:
                 if role not in POSITIONS:
                     raise ColumnError(f"알 수 없는 포지션 '{role}' (top/jng/mid/bot/sup 중 하나)")
                 board[side][role] = v
+            elif k == "games":
+                n = _int("games", v)
+                if not 0 <= n <= 10:
+                    raise ColumnError("games는 0~10 사이여야 합니다")
+                opts["games"] = n
             elif k == "leagues":
                 opts["leagues"] = [x for x in v.split(",") if x]
             elif k in SEARCH_KEYS:

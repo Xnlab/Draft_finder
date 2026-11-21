@@ -53,6 +53,7 @@ def test_parses_front_matter_paragraphs_and_embeds():
     ("@form team=T1 until=11/14", "until"),
     ("@flow team=T1", "nth=N 또는 id"),
     ("@game nth=abc", "숫자여야"),
+    ("@search blue.mid=Azir games=20", "0~10"),
 ])
 def test_bad_embeds_give_clear_errors_with_location(body, msg):
     text = "---\ntitle: t\ndate: 2026-01-01\n---\n본문\n\n" + body + "\n"
@@ -90,7 +91,7 @@ draft: true
 
 @flow id=ABC_123 team="T1"
 
-@search blue.bot=Kai'Sa
+@search blue.bot=Kai'Sa games=3
 """
     c = parse_column(text, "n")
     assert c["kind"] == "note" and c["draft"] is True
@@ -98,6 +99,7 @@ draft: true
     assert c["blocks"][1] == {"type": "form", "team": "Gen.G", "n": 12, "until": "2026-11-14"}
     assert c["blocks"][2] == {"type": "flow", "id": "ABC_123", "team": "T1"}
     assert c["blocks"][3]["board"]["blue"] == {"bot": "Kai'Sa"}       # 작은따옴표가 든 이름도 그대로
+    assert c["blocks"][3]["games"] == 3
 
 
 def test_kind_and_draft_defaults_and_errors():

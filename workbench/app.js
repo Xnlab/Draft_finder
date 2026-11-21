@@ -401,7 +401,7 @@ function popBlockHtml(con){
     const ids=POPTOP[r],left=ids.filter(id=>!con.has(id)).length;
     return `<div class="prow"><span class="un" style="color:${ROLE_COLORS[r]}">${ROLE_KO[r]}</span><div class="pops">${ids.map(id=>`<div class="pop ${con.has(id)?'used':''}" title="${esc(CH[id].ko)}${con.has(id)?' · 소진':''}"><img src="${CH[id].icon}" alt="${esc(CH[id].ko)}" width="36" height="36"></div>`).join('')}</div><span class="utxt">${left}/${ids.length} 남음</span></div>`;
   }).join('');
-  return {total,used,rows};
+  return {total,used,rows,per:POPTOP[ROLES[0]].length};
 }
 function gameStripHtml(g){
   const veil=hidden(g.id);
@@ -1084,9 +1084,15 @@ function searchWidget(b,ref){
   const title=veil?`${who}: ${n.toLocaleString('ko-KR')}경기를 찾았어요`:n<5?`${who}${eul(who)} 고른 경기는 ${n}경기뿐이에요 (${wins}승 ${n-wins}패)`:`${who}${eul(who)} 고른 팀이 ${n.toLocaleString('ko-KR')}경기에서 ${pct}% 이겼어요`;
   const nums=veil
     ?`<div class="wstats one"><div>결과 가림 중이라 승률과 골드 차이는 가렸어요. <button class="btn" type="button" data-stats>통계 보기</button></div></div>`
-    :`<div class="wbig"><div class="wmain"><b>${pct}%</b><span>승률 · ${wins}승 ${n-wins}패</span></div><div class="wside"><div><b>${n.toLocaleString('ko-KR')}</b><span>찾은 경기</span></div><div><b>${fmtGd(gd)}</b><span>15분 평균 골드 차이</span></div></div></div>`;
+    :`<div class="wbig"><div class="wmain">${n<5?`<b>${wins}승 ${n-wins}패</b><span>전적</span>`:`<b>${pct}%</b><span>승률 · ${wins}승 ${n-wins}패</span>`}</div><div class="wside"><div><b>${n.toLocaleString('ko-KR')}</b><span>찾은 경기</span></div><div><b>${fmtGd(gd)}</b><span>15분 평균 골드 차이</span></div></div></div>`;
+  // 95% 범위(윌슨 구간): 이 승률이 반반(50%)과 구별되는지 독자가 바로 알 수 있게
+  const z=1.96,ph=wins/n,den=1+z*z/n,mid=(ph+z*z/(2*n))/den,half=z*Math.sqrt(ph*(1-ph)/n+z*z/(4*n*n))/den;
+  const lo=Math.max(0,Math.round((mid-half)*100)),hi=Math.min(100,Math.round((mid+half)*100)),even=lo<=50&&hi>=50;
+  const range=veil||n<5?'':`<p class="wci"><b>95% 범위 ${lo}~${hi}%</b> · ${even?'50%와 구별되지 않아요. 우연으로도 나올 수 있는 차이예요':`50%를 ${ph>.5?'넘는':'밑도는'} 차이예요`}</p>`;
   const small=n<10?'<p style="margin:0 0 10px"><span class="tag warn">표본이 적어요. 참고용으로만 봐 주세요</span></p>':'';
-  return wbox({tags,title,body:`${nums}${small}<div class="games one">${foldList(list.slice(0,4).map(cardHtml),'경기')}</div>
+  const lines=b.games?`<ul class="wlist">${list.slice(0,b.games).map(r=>{const g=r.g,me=r.pGame==='b'?g.bt:g.rt,op=r.pGame==='b'?g.rt:g.bt;
+    return `<li><span>${esc(g.lg)} · ${fmtDate(g.d)} · ${g.s}세트</span><b>${esc(tn(me))}</b> vs ${esc(tn(op))}${veil?'':` <em class="${r.win?'pos':'neg'}">${r.win?'승':'패'}</em>`}</li>`}).join('')}</ul>`:'';
+  return wbox({tags,title,body:`${nums}${range}${small}${lines}
     <div class="dact" style="margin-top:12px"><button class="btn" type="button" data-wsearch="${ref}">검색기에서 열기 (${n.toLocaleString('ko-KR')}경기 전체)</button></div>`,
     foot:`${res.both?`${who} 쪽 기준`:'고른 챔피언을 쓴 팀 기준'}, 포지션이 달라도 같은 챔피언이면 셌어요`});
 }
@@ -1096,7 +1102,7 @@ function seriesWidget(b){
   return wbox({tags:[esc(s.league),fmtDate(s.date),`${esc(tn(s.A))} vs ${esc(tn(s.B))}`,`${n}세트 후`],
     title:`${n}세트까지 챔피언 ${con.size}명이 소진됐고, 인기 상위 ${pop.total}명 중 ${pop.used}명이 이미 쓰였어요`,
     body:`<div class="tpanels">${teamPanelHtml(s,s.A,n)}${teamPanelHtml(s,s.B,n)}</div>
-    <h5 class="sub5">포지션별 인기 상위 챔피언 중 남은 것</h5><div class="use">${pop.rows}</div>
+    <p class="wci" style="margin-top:12px">포지션별 인기 상위 ${pop.per}명 중 남은 챔피언: ${ROLES.map(r=>`${ROLE_KO[r]} <b>${POPTOP[r].filter(id=>!con.has(id)).length}</b>`).join(' · ')}</p>
     <div class="dact" style="margin-top:12px"><button class="btn" type="button" data-wseries="${s.id}:${n}">시리즈 복기 열기</button></div>`,
     foot:'인기 순위는 시즌 전체 포지션별 픽 수 기준'});
 }
@@ -1150,7 +1156,7 @@ function flowWidget(b){
   const a=arcOf(g,code),cv=curve(g,code);
   const title=`${esc(tn(me))}의 ${a?ARC_LABEL[a]:(win?'승리':'패배')}${cv?`: 15분 ${fmtGd(cv[1])}, 25분 ${fmtGd(cv[3])}`:''}`;
   return wbox({tags:[esc(g.lg),fmtDate(g.d),`${g.s}세트`,`${emblem(me,18)} ${esc(tn(me))} 기준`,g.len?`${g.len}분`:''].filter(Boolean),title,body:`    ${b.team&&g.bt!==b.team&&g.rt!==b.team?`<p style="margin:0 0 10px"><span class="tag warn">${esc(b.team)}가 뛴 경기가 아니라 블루 진영 기준으로 보여 줘요</span></p>`:''}
-    <div class="games one" style="margin-bottom:12px">${gameStripHtml(g)}</div>
+    <div class="wpicks">${[code,o].map(c=>{const nm=c==='b'?g.bt:g.rt;return `<div>${emblem(nm,20)}<b>${esc(tn(nm))}</b>${g.w===c?'<em class="pos">승</em>':''}<span class="wic">${g[c].map(x=>x<0?'<i class="tph">?</i>':`<img src="${CH[x].icon}" alt="${esc(CH[x].ko)}" title="${esc(CH[x].ko)}" width="28" height="28">`).join('')}</span></div>`}).join('')}</div>
     <h5 class="sub5">시간대별 골드 차이 (${esc(tn(me))} 기준)</h5>${svg}
     <div class="mgrid">
       <div class="mpanel"><h5>초반 차이</h5><table class="ptable"><thead><tr><th></th><th class="num">10분</th><th class="num">15분</th></tr></thead><tbody>
