@@ -381,10 +381,9 @@ function seriesList(){
     const sp=seriesVeil(x);
     return `<article class="card scard" data-series="${x.id}" tabindex="0"><div class="gh"><span class="lg">${esc(x.league)}</span><span>${fmtDate(x.date)}</span>${sp?'<span class="muted" style="margin-left:auto">세트 수 가림</span>':`<span class="muted" style="margin-left:auto">${x.k}세트</span>`}</div>
       <h3>${esc(x.A)} <span class="muted">vs</span> ${esc(x.B)}</h3>
-      ${sp?'<p class="muted" style="margin:0">세트를 하나씩 열면서 복기해요</p>':`<p class="muted" style="margin:0">${esc(x.A)} ${x.wA} : ${x.wB} ${esc(x.B)} · 소진된 챔피언 ${x.used}명</p>`}</article>`;
+</article>`;
   }).join('');
-  return `<div class="page-h"><h1>피어리스 복기</h1><p class="muted">세트가 지날수록 쓸 수 있는 챔피언이 줄어들어요. 시리즈를 골라 세트마다 소진된 챔피언을 따라가 보세요.</p></div>
-    <div class="tools" style="margin:0 0 14px">${chips}</div>
+  return `<div class="tools" style="margin:0 0 14px">${chips}</div>
     <div class="cols" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">${cards}</div>
     ${list.length>S.sMore?`<button class="more" type="button" data-smore>시리즈 더 보기 (${list.length-S.sMore}개 남음)</button>`:''}`;
 }
@@ -480,7 +479,7 @@ function colIcons(c){
 }
 function colCard(c,i){
   const ids=colIcons(c);
-  return `<article class="card col"><div class="kick">${c.draft?'<span class="tag warn">초안</span> ':''}${c.kind==='note'?'분석 노트':esc(c.kick||'칼럼')} · ${fmtDate(c.date)}</div><h3>${esc(c.title)}</h3><p>${esc(c.lede)}</p>
+  return `<article class="card col"><div class="kick">${c.draft?'<span class="tag warn">초안</span> ':''}${c.kind==='note'?'분석 노트':esc(c.kick||'칼럼')} · ${fmtDate(c.date)}</div><h3>${esc(c.title)}</h3>
     <div class="ics">${ids.map(id=>`<img src="${CH[id].icon}" alt="${esc(CH[id].ko)}" width="28" height="28">`).join('')}</div>
     <button type="button" data-col="${i}">칼럼 읽기</button></article>`;
 }
@@ -493,7 +492,7 @@ function renderColumns(){
   const ds=Object.entries(DRAFTS||{}).sort((a,b)=>(b[1].updatedAt||'')<(a[1].updatedAt||'')?-1:1);
   const note=DRAFT_STATE==='local'?'<p class="rel">이 화면은 서버 저장을 쓸 수 없어서 원고가 이 브라우저에만 저장돼요. claude.ai의 작업실 페이지에서 쓰면 서버에 저장돼요.</p>':DRAFT_STATE==='slow'?'<p class="rel">원고 저장소에 아직 연결되지 않았어요.</p>':DRAFT_STATE==='error'?'<p class="rel">원고 저장소를 쓸 수 없어요.</p>':'';
   dbox.innerHTML=`<div class="section-title"><h2>내 원고</h2><a href="#write-new" class="btn primary" style="margin-left:auto">새 칼럼 쓰기</a></div>
-    ${ds.length?`<div class="dlist">${ds.map(([id,d])=>`<a class="card ditem" href="#write-${esc(id)}"><div class="kick">${d.kind==='note'?'분석 노트':esc(d.kick||'칼럼')} · ${esc(d.date||'')}</div><b>${esc(d.title||'(제목 없음)')}</b><small>${d.updatedAt?'저장 '+esc(new Date(d.updatedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})):''}</small></a>`).join('')}</div>`:'<p class="muted">아직 원고가 없어요. "새 칼럼 쓰기"로 시작하세요.</p>'}${note}`;
+    ${ds.length?`<div class="dlist">${ds.map(([id,d])=>`<a class="card ditem" href="#write-${esc(id)}"><div class="kick">${d.kind==='note'?'분석 노트':esc(d.kick||'칼럼')} · ${esc(d.date||'')}</div><b>${esc(d.title||'(제목 없음)')}</b><small>${d.updatedAt?'저장 '+esc(new Date(d.updatedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})):''}</small></a>`).join('')}</div>`:''}${note}`;
 }
 
 /* 근거 상자는 검색기와 같은 계산을 쓴다. 검색 상태(S)를 잠깐 바꿔서 계산하고 원래대로 돌려놓는다. */
