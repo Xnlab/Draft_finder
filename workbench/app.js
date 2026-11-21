@@ -1226,7 +1226,7 @@ function renderTeams(){
       <input class="q" id="team-q" type="search" placeholder="팀 이름 검색 (예: 젠지, T1)" autocomplete="off" value="${esc(S.tq)}" style="width:100%;margin:0 0 10px">
       ${leagueBar(lgs,S.tlg,'tlg','전체')}
       <div id="team-pick">${teamPickList()}</div>
-      <p class="rel" style="margin:14px 0 0">엠블럼은 팀 로고가 아니라 약칭과 팀 색으로 직접 만든 그림이에요. 팀 색과 한글 이름은 초안이라 틀릴 수 있어요.</p></section>
+      <p class="rel" style="margin:14px 0 0">팀 로고는 사용 허락을 받은 팀만 보여 줘요. 나머지는 약칭과 팀 색으로 만든 엠블럼이에요.</p></section>
     ${id!=null?`<button class="chip" type="button" data-keep style="margin-top:14px">← 바꾸지 않고 돌아가기</button>`:''}`;
 }
 function renderTeam(id){

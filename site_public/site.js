@@ -79,6 +79,6 @@ fetch('posts.json').then(r=>r.json()).then(d=>{
   $('#demo-pill').hidden=!META.demo;
   $('#foot').textContent=(META.demo
     ?'데모 데이터입니다. 챔피언 이미지는 Riot Games Data Dragon을 사용했어요.'
-    :"챔피언 이미지는 Riot Games Data Dragon을, 경기 데이터는 Oracle's Elixir(Tim Sevenhuysen)의 2026 파일을 사용했어요.")+(AUTHOR.email?` 문의: ${AUTHOR.email}`:'');
+    :"챔피언 이미지는 Riot Games Data Dragon을, 경기 데이터는 Oracle's Elixir(Tim Sevenhuysen)의 2026 파일을 사용했어요. 팀 로고는 각 팀의 허락을 받아 사용했어요.")+(AUTHOR.email?` 문의: ${AUTHOR.email}`:'');
   route();
 }).catch(()=>{$('#view').innerHTML='<div class="card empty-state"><h2>글을 불러오지 못했어요</h2></div>'});
