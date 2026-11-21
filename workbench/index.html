@@ -850,6 +850,19 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
 .werr{color:var(--loss);background:var(--loss-soft);border-radius:8px;padding:6px 10px;font-size:.84rem}
 @media (max-width:980px){.wlay{grid-template-columns:minmax(0,1fr)}.wprev{position:static;max-height:none}}
 @media (max-width:520px){.wrow{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.wrow .wf:last-child{grid-column:1/-1}}
+/* 챔피언 탭 정렬: 픽·밴 표와 승률 줄을 같은 칸 폭으로 */
+.ctbl{table-layout:fixed;width:100%}
+.ctbl col.c-rk{width:40px}.ctbl col.c-ch{width:254px}.ctbl col.c-pos{width:64px}
+.ctbl td,.ctbl th{height:46px;padding-top:0;padding-bottom:0}
+.ctbl .cname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctab h2{height:28px;display:flex;align-items:center}
+.chead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+.chead-sp{flex:1}
+.wr-row,.wr-head{grid-template-columns:40px 254px 64px minmax(0,1fr) 110px!important;gap:0!important;min-height:46px;padding:0}
+.wr-row>*,.wr-head>*{padding:0 6px;min-width:0}
+.wr-head{min-height:24px}
+.rk{color:var(--faint);font-weight:700}
+@media (max-width:640px){.wr-row,.wr-head{grid-template-columns:30px minmax(0,120px) minmax(0,1fr) 76px!important}.ctbl col.c-ch{width:auto}}
 </style>
 
 <div class="wrap">
@@ -880,8 +893,6 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
 
   <main id="view-search" hidden>
     <section class="hero card">
-      <h1>이 밴픽, 다른 경기에서는 어떻게 흘러갔을까?</h1>
-      <p class="lede">챔피언을 눌러 채워 보세요. 한 명만 골라도 리그 상관없이 비슷한 경기를 찾아 줘요.</p>
 
       <div class="board">
         <div class="tm blue"><div class="th"><i></i>블루 팀</div><div class="slots" id="slots-blue"></div></div>
@@ -904,8 +915,7 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
 
     <div id="results" aria-live="polite"></div>
 
-    <div class="section-title"><h2>칼럼에서 다룬 밴픽</h2><a href="#columns">칼럼 전체 보기</a></div>
-    <div class="cols" id="col-strip"></div>
+
   </main>
 
   <main id="view-series" hidden>

@@ -178,7 +178,7 @@ function ringSvg(pct){
 function renderResults(){
   const box=$('#results'),sel=selection();
   if(!sel.length){
-    box.innerHTML=`<div class="card empty-state" style="margin-top:16px"><h2>챔피언을 하나만 골라도 찾아 드려요</h2><p class="muted" style="margin:0">위 보드에서 칸을 눌러 챔피언을 고르세요.</p></div>`;
+    box.innerHTML='';
     return;
   }
   const {list:all,persp,both}=run(sel);
@@ -486,7 +486,7 @@ function colCard(c,i){
 }
 function renderColumns(){
   const none='<p class="muted">아직 칼럼이 없어요.</p>';
-  $('#col-strip').innerHTML=COLUMNS.slice(0,3).map(colCard).join('')||none;
+  if($('#col-strip'))$('#col-strip').innerHTML='';
   $('#col-list').innerHTML=COLUMNS.map(colCard).join('')||none;
   const dbox=$('#draft-list');if(!dbox)return;
   if(typeof watchDrafts==='function')watchDrafts();
@@ -886,7 +886,7 @@ function renderChamps(){
   }
   const byKo=(a,b)=>CH[+a[0]].ko.localeCompare(CH[+b[0]].ko,'ko');
   const ranks=(list,val)=>{let prev=null,r=0;return list.map((x,i)=>{const v=val(x);if(v!==prev){r=i+1;prev=v}return r})};
-  const roleTag=c=>{const o=rl[c];if(!o)return '';const i=o.indexOf(Math.max(...o));return `<span class="rtag" style="color:${ROLE_COLORS[ROLES[i]]}">${ROLE_KO[ROLES[i]]}</span>`};
+  const roleTag=c=>{const o=rl[c];if(!o){const r0=CH[+c].roles[0];return r0?`<span class="rtag" style="color:${ROLE_COLORS[r0]}">${ROLE_KO[r0]}</span>`:''}const i=o.indexOf(Math.max(...o));return `<span class="rtag" style="color:${ROLE_COLORS[ROLES[i]]}">${ROLE_KO[ROLES[i]]}</span>`};
   const nm=c=>`<button type="button" class="cname" data-chsearch="${c}" title="밴픽 찾기에서 ${esc(CH[c].ko)} 경기 보기"><img src="${CH[c].icon}" alt="" width="32" height="32"><span>${esc(CH[c].ko)}</span></button>`;
   const lgName=S.cl==='all'?'전체 리그':lgLabel(S.cl),ptName=S.cpt==='all'?'전체 패치':S.cpt==='latest'?'패치 '+last:S.cpt==='last3'?'최근 3개 패치':'패치 '+esc(S.cpt.slice(2));
   // 리그: 원형 아이콘 한 줄 (OP.GG 방식)
@@ -901,20 +901,22 @@ function renderChamps(){
   const splitSel=`<select class="sel" id="csp-one" aria-label="대회 구분"><option value="all" ${S.csp==='all'?'selected':''}>전체 대회</option>${hasCup?`<option value="nocup" ${S.csp==='nocup'?'selected':''}>컵 대회 제외</option>`:''}<option value="reg" ${S.csp==='reg'?'selected':''}>정규 시즌</option><option value="po" ${S.csp==='po'?'selected':''}>플레이오프</option>${splits.map(x=>`<option value="s:${esc(x)}" ${S.csp==='s:'+x?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
   const view=S.cview||'rank';
   const viewTabs=`<div class="tabs" role="tablist"><button role="tab" type="button" data-cview="rank" aria-selected="${view==='rank'}">픽·밴 순위</button><button role="tab" type="button" data-cview="win" aria-selected="${view==='win'}">승률</button></div>`;
-  const head=`<div class="chead"><div class="chead-t"><b>${esc(lgName)}</b><span>${esc(spName[S.csp]||S.csp.slice(2))} · ${ptName} · ${n.toLocaleString('ko-KR')}경기${ri!=null?` · ${ROLE_KO[ROLES[ri]]}`:''}</span></div>${splitSel}${patchSel}${viewTabs}</div>`;
+  const head=`<div class="chead">${viewTabs}<span class="chead-sp"></span>${splitSel}${patchSel}</div>`;
   let body='';
   if(!n)body='<div class="card empty-state"><h2>조건에 맞는 경기가 없어요</h2></div>';
   else if(view==='rank'){
     // 픽 순위·밴 순위: 그래프 없이 순위만
     const P=Object.entries(pk).sort((a,b)=>b[1]-a[1]||byKo(a,b)),B=Object.entries(bn).sort((a,b)=>b[1]-a[1]||byKo(a,b));
     const pr=ranks(P,x=>x[1]),br=ranks(B,x=>x[1]);
-    const pRows=P.slice(0,S.cn).map(([c,v],i)=>`<tr><td class="rk">${pr[i]}</td><td>${nm(+c)}</td><td>${roleTag(c)}</td><td class="num"><b>${v}</b></td><td class="num">${(v/n*100).toFixed(1)}%</td></tr>`).join('');
-    const bRows=B.slice(0,S.cn).map(([c,v],i)=>`<tr><td class="rk">${br[i]}</td><td>${nm(+c)}</td><td class="num"><b>${v}</b></td><td class="num">${(v/n*100).toFixed(1)}%</td></tr>`).join('');
+    const cols='<colgroup><col class="c-rk"><col class="c-ch"><col class="c-pos"><col><col></colgroup>';
+    const row=(r,c,v)=>`<tr><td class="rk">${r}</td><td>${nm(+c)}</td><td>${roleTag(c)||'<span class="muted">-</span>'}</td><td class="num"><b>${v}</b></td><td class="num">${(v/n*100).toFixed(1)}%</td></tr>`;
+    const pRows=P.slice(0,S.cn).map(([c,v],i)=>row(pr[i],c,v)).join('');
+    const bRows=B.slice(0,S.cn).map(([c,v],i)=>row(br[i],c,v)).join('');
+    const th=(cnt,rate)=>`<thead><tr><th>#</th><th>챔피언</th><th>포지션</th><th class="num">${cnt}</th><th class="num">${rate}</th></tr></thead>`;
     body=`<div class="ctwo">
-      <section class="card ctab"><h2>픽 순위</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th>포지션</th><th class="num">픽</th><th class="num" title="고른 경기 중 이 챔피언이 나온 경기의 비율 (OP.GG의 Rate는 전체 픽 수 대비라 약 10분의 1)">픽률 <small>경기 대비</small></th></tr></thead><tbody>${pRows}</tbody></table></section>
-      <section class="card ctab"><h2>밴 순위</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th class="num">밴</th><th class="num" title="고른 경기 중 이 챔피언이 밴된 경기의 비율 (OP.GG의 Rate는 전체 밴 수 대비)">밴률 <small>경기 대비</small></th></tr></thead><tbody>${bRows}</tbody></table></section></div>
-      ${Math.max(P.length,B.length)>S.cn?`<button class="more" type="button" data-cmore>더 보기</button>`:''}
-      <p class="rel">픽률·밴률은 경기 대비(고른 경기 중 몇 %에서 나왔는지)예요. OP.GG의 Rate는 전체 픽·밴 수 대비라 숫자가 약 10분의 1이에요. 기본으로 LCK 컵 같은 컵 대회는 빼고 셉니다. 포지션을 고르면 밴은 그 포지션을 주로 맡는 챔피언만 셉니다.</p>`;
+      <section class="card ctab"><h2>픽 순위</h2><table class="ptable ctbl">${cols}${th('픽','픽률')}<tbody>${pRows}</tbody></table></section>
+      <section class="card ctab"><h2>밴 순위</h2><table class="ptable ctbl">${cols}${th('밴','밴률')}<tbody>${bRows}</tbody></table></section></div>
+      ${Math.max(P.length,B.length)>S.cn?`<button class="more" type="button" data-cmore>더 보기</button>`:''}`;
   }else{
     // 승률: 0~100% 막대, 50% 기준선. 픽이 적은 챔피언은 뺀다
     const minN=Math.max(10,Math.round(n*0.01));
@@ -925,11 +927,9 @@ function renderChamps(){
       <span class="wr-v"><b>${(r*100).toFixed(1)}%</b><small>${wn[c]||0}승 ${v-(wn[c]||0)}패</small></span></div>`).join('');
     body=`<section class="card ctab"><h2>승률 <span class="muted" style="font-weight:500;font-size:.8rem">픽 ${minN}회 이상</span></h2>
       <div class="wr-head"><span></span><span></span><span></span><div class="wr-ax"><small>0%</small><small>50%</small><small>100%</small></div><span></span></div>${rows||'<p class="muted">조건에 맞는 챔피언이 없어요</p>'}</section>
-      ${W.length>S.cn?`<button class="more" type="button" data-cmore>더 보기</button>`:''}
-      <p class="rel">막대는 0~100% 기준, 세로선은 50%. 픽이 ${minN}회(고른 경기의 1%, 최소 10회)보다 적은 챔피언은 뺐어요.</p>`;
+      ${W.length>S.cn?`<button class="more" type="button" data-cmore>더 보기</button>`:''}`;
   }
-  box.innerHTML=`<div class="page-h"><h1>챔피언 순위</h1></div>
-    <section class="card cfil">${lgRow}${roleBar}</section>${head}${body}`;
+  box.innerHTML=`<section class="card cfil">${lgRow}${roleBar}</section>${head}${body}`;
 }
 
 /* ---------- 팀 페이지 대시보드 (dpm.lol을 참고한 배치): 요약 카드, 최근 흐름, 리그 비교, 챔피언 표 ---------- */
@@ -1299,12 +1299,11 @@ function renderTeams(){
   if(id!=null&&!S.changing){box.innerHTML=teamBody(TEAMS[id],true);formToEnd();return}
   const lgCnt={};TEAMS.forEach(t=>lgCnt[t.league]=(lgCnt[t.league]||0)+t.games.length);
   const pref=['LCK','LPL','LEC','LCS','LCP','CBLOL'],lgs=pref.filter(l=>lgCnt[l]).concat(Object.entries(lgCnt).filter(x=>!pref.includes(x[0])).sort((a,b)=>b[1]-a[1]).slice(0,4).map(x=>x[0]));
-  box.innerHTML=`<div class="page-h"><h1>${id!=null?'마이 팀 바꾸기':'내 팀을 골라 주세요'}</h1><p class="muted">팀 엠블럼을 누르면 사이트가 그 팀의 색으로 바뀌고, 그 팀의 선수, 밴픽, 경기, 칼럼이 첫 화면에 모여요. 고른 팀은 이 브라우저에만 저장돼요.</p></div>
+  box.innerHTML=`
     <section class="card story">
-      <input class="q" id="team-q" type="search" placeholder="팀 이름 검색 (예: 젠지, T1)" autocomplete="off" value="${esc(S.tq)}" style="width:100%;margin:0 0 10px">
+      <input class="q" id="team-q" type="search" placeholder="팀 이름 검색" autocomplete="off" value="${esc(S.tq)}" style="width:100%;margin:0 0 10px">
       ${leagueBar(lgs,S.tlg,'tlg','전체')}
-      <div id="team-pick">${teamPickList()}</div>
-      <p class="rel" style="margin:14px 0 0">팀 로고는 사용 허락을 받은 팀만 보여 줘요. 나머지는 약칭과 팀 색으로 만든 엠블럼이에요.</p></section>
+      <div id="team-pick">${teamPickList()}</div></section>
     ${id!=null?`<button class="chip" type="button" data-keep style="margin-top:14px">← 바꾸지 않고 돌아가기</button>`:''}`;
 }
 function renderTeam(id){
