@@ -825,6 +825,31 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
 .wr-v{text-align:right;line-height:1.2}.wr-v b{display:block;font-variant-numeric:tabular-nums}.wr-v small{font-size:.7rem;color:var(--faint)}
 @media (max-width:640px){.rolebar{grid-template-columns:repeat(3,minmax(0,1fr))}.rolebar button:nth-child(4){border-left:0}.rolebar button:nth-child(n+4){border-top:1px solid var(--line)}
   .wr-row,.wr-head{grid-template-columns:22px minmax(0,110px) minmax(0,1fr) 70px}.wr-row>span:nth-child(3),.wr-head>span:nth-child(3){display:none}}
+/* 칼럼 쓰기 */
+.dlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:8px}
+.ditem{display:flex;flex-direction:column;gap:4px;padding:14px 16px;text-decoration:none;color:inherit}
+.ditem:hover{border-color:var(--accent)}
+.ditem .kick{font-size:.74rem;color:var(--faint);font-weight:700}
+.ditem small{color:var(--faint);font-size:.74rem}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);text-decoration:none}
+.wtop{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.wstat{margin-right:auto;font-size:.8rem;color:var(--muted)}
+.wlay{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.wedit{padding:16px 18px}
+.wf{display:flex;flex-direction:column;gap:4px;margin:0 0 10px;font-size:.78rem;font-weight:700;color:var(--muted);min-width:0}
+.wf input,.wf select{font:inherit;font-size:.95rem;font-weight:500;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+.wrow{display:grid;grid-template-columns:150px 110px minmax(0,1fr);gap:10px}
+.wbar{display:flex;align-items:center;gap:10px;margin:6px 0 6px;font-size:.78rem;font-weight:700;color:var(--muted)}
+.wbar select{margin-left:auto}
+#wbody{width:100%;min-height:520px;resize:vertical;font:inherit;font-size:.95rem;line-height:1.75;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.wf input:focus,#wbody:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.wprev{padding:16px 20px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+.wprev-h{font-size:.74rem;font-weight:800;color:var(--faint);margin-bottom:6px}
+.wprev .art{max-width:none}
+.art h3{margin:1.4rem 0 .6rem;font-size:1.08rem}
+.werr{color:var(--loss);background:var(--loss-soft);border-radius:8px;padding:6px 10px;font-size:.84rem}
+@media (max-width:980px){.wlay{grid-template-columns:minmax(0,1fr)}.wprev{position:static;max-height:none}}
+@media (max-width:520px){.wrow{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.wrow .wf:last-child{grid-column:1/-1}}
 </style>
 
 <div class="wrap">
@@ -894,9 +919,15 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
   <main id="view-columns" hidden>
     <div class="page-h">
       <h1>칼럼</h1>
-      <p class="muted">경기를 보고 쓴 분석 글이에요. 글마다 비교 경기를 바로 열어 볼 수 있어요. (아래 글은 모양을 보여 주기 위한 예시예요)</p>
+      <p class="muted">원고를 쓰고 저장해 두면, Claude가 칼럼 파일로 옮겨 사이트와 커뮤니티용으로 만들어요.</p>
     </div>
+    <div id="draft-list"></div>
+    <div class="section-title"><h2>칼럼 원고</h2></div>
     <div class="cols" id="col-list"></div>
+  </main>
+
+  <main id="view-write" hidden>
+    <div id="write-box"></div>
   </main>
 
   <p class="foot" id="foot">데모 데이터입니다. 챔피언 이미지는 Riot Games Data Dragon을 사용했어요.</p>

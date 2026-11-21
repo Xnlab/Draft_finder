@@ -97,7 +97,7 @@ function renderBoard(){
 }
 function setBoard(b){
   S.blue.fill(-1);S.red.fill(-1);
-  for(const side of['blue','red'])for(const[role,en]of Object.entries(b[side]||{}))if(CHIDX[en]!=null)S[side][ROLES.indexOf(role)]=CHIDX[en];
+  for(const side of['blue','red'])for(const[role,en]of Object.entries(b[side]||{}))if(chId(en)!=null)S[side][ROLES.indexOf(role)]=chId(en);
 }
 function example(k){
   S.sets='all';S.patch='all';S.pos='any';S.flexOnly=false;S.leagues.clear();S.tab='full';S.shown=12;
@@ -472,7 +472,7 @@ function pickSeries(b){
 function pickGame(b){return b.id?BYID[b.id]:G[Math.min(Math.max(b.nth||0,0),G.length-1)]}
 function colIcons(c){
   for(const b of c.blocks){
-    if(b.type==='search')return[...Object.values(b.board.blue||{}),...Object.values(b.board.red||{})].map(en=>CHIDX[en]).filter(x=>x!=null);
+    if(b.type==='search')return[...Object.values(b.board.blue||{}),...Object.values(b.board.red||{})].map(en=>chId(en)).filter(x=>x!=null);
     if(b.type==='series'){const s=pickSeries(b);if(s)return s.games[0].b.concat(s.games[0].r).filter(x=>x>=0).slice(0,6)}
     if(b.type==='game'||b.type==='flow'){const g=pickGame(b);if(g)return g.b.concat(g.r).filter(x=>x>=0).slice(0,6)}
   }
@@ -488,6 +488,12 @@ function renderColumns(){
   const none='<p class="muted">아직 칼럼이 없어요.</p>';
   $('#col-strip').innerHTML=COLUMNS.slice(0,3).map(colCard).join('')||none;
   $('#col-list').innerHTML=COLUMNS.map(colCard).join('')||none;
+  const dbox=$('#draft-list');if(!dbox)return;
+  if(typeof watchDrafts==='function')watchDrafts();
+  const ds=Object.entries(DRAFTS||{}).sort((a,b)=>(b[1].updatedAt||'')<(a[1].updatedAt||'')?-1:1);
+  const note=DRAFT_STATE==='local'?'<p class="rel">이 화면은 서버 저장을 쓸 수 없어서 원고가 이 브라우저에만 저장돼요. claude.ai의 작업실 페이지에서 쓰면 서버에 저장돼요.</p>':DRAFT_STATE==='slow'?'<p class="rel">원고 저장소에 아직 연결되지 않았어요.</p>':DRAFT_STATE==='error'?'<p class="rel">원고 저장소를 쓸 수 없어요.</p>':'';
+  dbox.innerHTML=`<div class="section-title"><h2>내 원고</h2><a href="#write-new" class="btn primary" style="margin-left:auto">새 칼럼 쓰기</a></div>
+    ${ds.length?`<div class="dlist">${ds.map(([id,d])=>`<a class="card ditem" href="#write-${esc(id)}"><div class="kick">${d.kind==='note'?'분석 노트':esc(d.kick||'칼럼')} · ${esc(d.date||'')}</div><b>${esc(d.title||'(제목 없음)')}</b><small>${d.updatedAt?'저장 '+esc(new Date(d.updatedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})):''}</small></a>`).join('')}</div>`:'<p class="muted">아직 원고가 없어요. "새 칼럼 쓰기"로 시작하세요.</p>'}${note}`;
 }
 
 /* 근거 상자는 검색기와 같은 계산을 쓴다. 검색 상태(S)를 잠깐 바꿔서 계산하고 원래대로 돌려놓는다. */
@@ -495,9 +501,11 @@ function withState(patch,fn){
   const saved={};for(const k of Object.keys(patch))saved[k]=S[k];
   try{Object.assign(S,patch);return fn()}finally{Object.assign(S,saved)}
 }
-const toArr=o=>ROLES.map(r=>o&&o[r]!=null&&CHIDX[o[r]]!=null?CHIDX[o[r]]:-1);
+/* 상자에는 영문 이름과 한글 이름 둘 다 쓸 수 있다 */
+const chId=name=>{if(CHIDX[name]!=null)return CHIDX[name];const c=CH.find(x=>x.ko===name||x.ko.replace(/\s/g,'')===String(name).replace(/\s/g,''));return c?c.id:null};
+const toArr=o=>ROLES.map(r=>o&&o[r]!=null&&chId(o[r])!=null?chId(o[r]):-1);
 function searchLabel(b){
-  const part=side=>Object.entries(b.board[side]||{}).map(([r,en])=>`${ROLE_KO[r]} ${esc(CHIDX[en]!=null?CH[CHIDX[en]].ko:en)}`).join(' + ');
+  const part=side=>Object.entries(b.board[side]||{}).map(([r,en])=>`${ROLE_KO[r]} ${esc(chId(en)!=null?CH[chId(en)].ko:en)}`).join(' + ');
   const bl=part('blue'),rd=part('red');
   const f=[];
   if(b.sets==='late')f.push('4~5세트');
@@ -512,6 +520,7 @@ function columnBody(c,i){
   return c.blocks.map((b,j)=>{
     if(b.type==='p')return `<p>${esc(b.text)}</p>`;
     if(b.type==='h')return `<h2>${esc(b.text)}</h2>`;
+    if(b.type==='h3')return `<h3>${esc(b.text)}</h3>`;
     if(b.type==='search')return searchWidget(b,`${i}:${j}`);
     if(b.type==='series')return seriesWidget(b);
     if(b.type==='game')return gameWidget(b);
@@ -1086,7 +1095,7 @@ function teamBody(t,mine){
 }
 
 /* ---------- 칼럼 상자: @team(팀 지표), @form(최근 흐름), @flow(경기 하나의 흐름) ---------- */
-const findTeam=name=>TEAMIDX[name]!=null?TEAMS[TEAMIDX[name]]:null;
+const findTeam=name=>TEAMIDX[name]!=null?TEAMS[TEAMIDX[name]]:(TEAMS.filter(t=>tn(t.name)===name||teamStyle(t.name).short===name).sort((a,b)=>b.games.length-a.games.length)[0]||null);
 /* ---------- 칼럼 데이터 상자: 제목 → 숫자·그래프 → 출처 한 줄. 꾸미는 문장은 넣지 않는다 ---------- */
 const seasonOf=()=>G.length?G[G.length-1].d.slice(0,4)+' 시즌':'';
 const srcOf=()=>META.demo?'데모 데이터':"Oracle's Elixir";
@@ -1101,14 +1110,15 @@ const gdk=v=>v==null?'-':(v>0?'+':v<0?'−':'')+(Math.abs(v)/1000).toFixed(1)+'k
 /* @search: 고른 챔피언(과 팀)이 나온 경기의 수, 승률, 95% 범위, 15분 골드 차이 */
 function searchWidget(b,ref){
   const miss=[];
-  for(const side of['blue','red'])for(const en of Object.values(b.board[side]||{}))if(CHIDX[en]==null)miss.push(en);
+  for(const side of['blue','red'])for(const en of Object.values(b.board[side]||{}))if(chId(en)==null)miss.push(en);
   if(miss.length)return wErr(`챔피언을 찾을 수 없음: ${miss.join(', ')}`);
   if(b.team&&!findTeam(b.team))return wErr(`팀을 찾을 수 없음: ${b.team}`);
   const st={blue:toArr(b.board.blue),red:toArr(b.board.red),patch:b.patch||'all',sets:b.sets||'all',pos:b.pos||'any',leagues:new Set(b.leagues||[])};
   const res=withState(st,()=>{const sel=selection();return{sel,...run(sel)}});
   const total=res.sel.length,lab=searchLabel(b);
   let list=res.list.filter(r=>r.matched===total);
-  if(b.team)list=list.filter(r=>(r.pGame==='b'?r.g.bt:r.g.rt)===b.team);
+  const tmN=b.team?findTeam(b.team).name:null;
+  if(tmN)list=list.filter(r=>(r.pGame==='b'?r.g.bt:r.g.rt)===tmN);
   const title=b.team?`${esc(tn(b.team))} · ${lab.q}`:lab.q,sub=lab.f.join(' · ');
   if(!list.length)return dbox(title,sub,'<p class="muted" style="margin:0">해당 경기 없음</p>','');
   const n=list.length,wins=list.filter(r=>r.win).length,ph=wins/n;
@@ -1236,9 +1246,10 @@ function flowWidget(b){
   if(b.id!=null||b.nth!=null)g=pickGame(b);
   else{const t=findTeam(b.team);if(!t)return wErr(`팀을 찾을 수 없음: ${b.team}`);const x=t.games[t.games.length-b.last];g=x&&x.g}
   if(!g)return wErr('경기를 찾을 수 없음');
-  if(b.team&&g.bt!==b.team&&g.rt!==b.team)return wErr(`${b.team}가 뛴 경기가 아님 (${g.bt} vs ${g.rt})`);
+  const tmF=b.team?(findTeam(b.team)||{name:b.team}).name:null;
+  if(tmF&&g.bt!==tmF&&g.rt!==tmF)return wErr(`${b.team}가 뛴 경기가 아님 (${g.bt} vs ${g.rt})`);
   if(ST===null){loadStats();return wLoading}
-  const code=b.team&&g.rt===b.team?'r':'b',o=opp(code),me=code==='b'?g.bt:g.rt,them=code==='b'?g.rt:g.bt,win=g.w===code,sg=code==='b'?1:-1;
+  const code=tmF&&g.rt===tmF?'r':'b',o=opp(code),me=code==='b'?g.bt:g.rt,them=code==='b'?g.rt:g.bt,win=g.w===code,sg=code==='b'?1:-1;
   const T=k=>tSt(g,code,k),O=k=>tSt(g,o,k);
   const pts=[[10,g.g10],[15,g.gd],[20,g.g20],[25,g.g25]].filter(x=>x[1]!=null).map(([mm,v])=>[mm,v*sg]);
   const W=560,H=220,L=52,Rr=28,Tp=24,B=28,mx=Math.max(1000,...pts.map(p=>Math.abs(p[1]))),st=niceStep(mx),top=Math.ceil(mx/st)*st;
@@ -1421,18 +1432,206 @@ function syncSpoiler(){
   b.querySelector('span').textContent=S.spoiler?'결과 가리는 중':'결과 가리기';
 }
 
+/* ---------- 칼럼 쓰기: 원고는 이 페이지의 저장소(db)에 둔다. Claude가 읽어서 columns/*.md로 옮긴다 ---------- */
+/* src/columns.py와 같은 규칙의 파서 (미리 보기용). 결과 블록 모양도 같다 */
+const POSN=['top','jng','mid','bot','sup'];
+const MKEYS=()=>EARLY.concat(WHOLE).map(x=>x[0]);
+function colParse(text){
+  const errs=[],blocks=[];
+  const body=String(text||'').replace(/^(#{2,3} .*|@\w+.*)$/gm,'\n$1\n');
+  const paras=body.trim().split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
+  paras.forEach((para,i)=>{
+    const em=/^@(\w+)\b(.*)$/.exec(para.split('\n')[0]);
+    if(em){
+      try{blocks.push({type:em[1],...colEmbed(em[1],colArgs(em[2]))})}
+      catch(e){errs.push(`${i+1}번째 문단: ${e.message}`);blocks.push({type:'err',text:`${para.split('\n')[0]} → ${e.message}`})}
+    }else if(para.startsWith('### '))blocks.push({type:'h3',text:para.slice(4).trim()});
+    else if(para.startsWith('## '))blocks.push({type:'h',text:para.slice(3).trim()});
+    else blocks.push({type:'p',text:para.split('\n').map(x=>x.trim()).join(' ')});
+  });
+  return{blocks,errs};
+}
+function colArgs(raw){
+  const out={},re=/(\S+?)=("([^"]*)"|\S+)|(\S+)/g;let m;
+  while((m=re.exec(raw))){if(m[4]!=null)throw new Error(`'${m[4]}'는 key=value 모양이어야 해요`);out[m[1]]=m[3]!=null?m[3]:m[2]}
+  return out;
+}
+function colEmbed(kind,a){
+  const int=(k,v)=>{if(!/^-?\d+$/.test(v))throw new Error(`${k}=${v}: 숫자여야 해요`);return +v};
+  const only=ok=>{const ex=Object.keys(a).filter(k=>!ok.includes(k));if(ex.length)throw new Error(`@${kind}에 알 수 없는 인자 ${ex.join(', ')}`)};
+  const ref=()=>{if('nth'in a)return{nth:int('nth',a.nth)};if('id'in a)return{id:a.id};throw new Error(`@${kind}에는 nth=N 또는 id=게임ID가 필요해요`)};
+  if(kind==='search'){
+    const board={blue:{},red:{}},o={};
+    for(const[k,v]of Object.entries(a)){
+      if(/^(blue|red)\./.test(k)){const[side,role]=k.split('.');if(!POSN.includes(role))throw new Error(`알 수 없는 포지션 '${role}' (top/jng/mid/bot/sup)`);board[side][role]=v}
+      else if(k==='team')o.team=v;
+      else if(k==='games'){const n=int(k,v);if(n<0||n>10)throw new Error('games는 0~10 사이여야 해요');o.games=n}
+      else if(k==='leagues')o.leagues=v.split(',').filter(Boolean);
+      else if(k==='sets'||k==='patch'||k==='pos'){const ok={sets:['all','early','late'],patch:['all','latest','last3'],pos:['any','exact']}[k];if(!ok.includes(v))throw new Error(`${k}=${v}: ${ok.join('/')} 중 하나`);o[k]=v}
+      else throw new Error(`@search에 알 수 없는 인자 '${k}'`);
+    }
+    if(!Object.keys(board.blue).length&&!Object.keys(board.red).length)throw new Error('@search에는 챔피언이 하나 이상 필요해요 (예: blue.mid=오리아나)');
+    return{board,...o};
+  }
+  if(kind==='series'){only(['pick','set']);const pick=a.pick||'longest';if(!['longest','latest'].includes(pick))throw new Error('@series pick은 longest 또는 latest');return{pick,set:'set'in a?int('set',a.set):null}}
+  if(kind==='game'){only(['nth','id']);return ref()}
+  if(kind==='team'){only(['name','show']);if(!a.name)throw new Error('@team에는 name="팀"이 필요해요');const o={name:a.name};
+    if('show'in a){const ks=a.show.split(',').filter(Boolean),bad=ks.filter(k=>!MKEYS().includes(k));if(bad.length||!ks.length)throw new Error(`@team show에 알 수 없는 지표 ${bad.join(', ')} (쓸 수 있는 것: ${MKEYS().join(', ')})`);o.show=ks}return o}
+  if(kind==='rank'){only(['stat','team','league']);if(!MKEYS().includes(a.stat))throw new Error(`@rank에는 stat=지표가 필요해요 (쓸 수 있는 것: ${MKEYS().join(', ')})`);if(!a.team&&!a.league)throw new Error('@rank에는 team="팀" 또는 league=LCK가 필요해요');const o={stat:a.stat};if(a.team)o.team=a.team;if(a.league)o.league=a.league;return o}
+  if(kind==='form'){only(['team','n','until']);if(!a.team)throw new Error('@form에는 team="팀"이 필요해요');const n=int('n',a.n||'10');if(n<3||n>30)throw new Error('@form n은 3~30 사이');const o={team:a.team,n};if(a.until){if(!/^\d{4}-\d{2}-\d{2}$/.test(a.until))throw new Error('@form until은 2026-11-14 모양');o.until=a.until}return o}
+  if(kind==='flow'){only(['nth','id','team','last']);let o;if('id'in a||'nth'in a)o=ref();else if(a.team){o={last:int('last',a.last||'1')};if(o.last<1)throw new Error('@flow last는 1 이상')}else throw new Error('@flow에는 id=게임ID, nth=N, team="팀" 중 하나가 필요해요');if(a.team)o.team=a.team;return o}
+  throw new Error(`알 수 없는 상자 @${kind} (search/series/game/team/rank/form/flow)`);
+}
+
+/* 원고 저장소. claude.ai의 작업실 페이지에서만 열린다. 그 밖(내 컴퓨터에서 연 경우)에는 이 브라우저에만 임시 저장 */
+let DBP=null,DRAFTS=null,DRAFT_UNSUB=null,DRAFT_STATE='loading';
+function getDb(){if(!DBP)DBP=(window.claude&&typeof window.claude.use==='function')?window.claude.use('db').catch(()=>null):Promise.resolve(null);return DBP}
+function watchDrafts(){
+  if(DRAFT_UNSUB||DRAFTS)return;
+  DRAFTS={};
+  getDb().then(db=>{
+    if(!db){DRAFT_STATE='local';try{const loc=JSON.parse(store.get('df-drafts')||'{}');DRAFTS=loc}catch(e){}redrawWrite();return}
+    const timer=setTimeout(()=>{if(DRAFT_STATE==='loading'){DRAFT_STATE='slow';redrawWrite()}},10000);
+    DRAFT_UNSUB=db.collection('drafts').onSnapshot(snap=>{
+      DRAFTS={};snap.docs.forEach(d=>{DRAFTS[d.id]=d.data()});
+      if(!snap.metadata.fromCache){clearTimeout(timer);DRAFT_STATE='ok'}
+      redrawWrite();
+    },e=>{clearTimeout(timer);DRAFT_STATE='error';redrawWrite()});
+  });
+}
+function redrawWrite(){if(!$('#view-columns').hidden)renderColumns();if(!$('#view-write').hidden&&!S.w)renderWrite(S.wid)}
+async function saveDraft(d){
+  d.updatedAt=new Date().toISOString();
+  const db=await getDb();
+  if(!db){DRAFTS[d.id]=d;store.set('df-drafts',JSON.stringify(DRAFTS));return 'local'}
+  const{id,...body}=d;await db.collection('drafts').doc(id).set(body);return 'ok';
+}
+async function deleteDraft(id){
+  const db=await getDb();
+  if(!db){delete DRAFTS[id];store.set('df-drafts',JSON.stringify(DRAFTS));return}
+  await db.collection('drafts').doc(id).delete();
+}
+function draftMd(d){
+  const fm=[['title',d.title],['date',d.date],['kick',d.kick],['kind',d.kind==='note'?'note':''],['draft','true'],['teams',d.teams],['lede',d.lede]].filter(x=>x[1]).map(([k,v])=>`${k}: ${String(v).replace(/\n/g,' ')}`);
+  return `---\n${fm.join('\n')}\n---\n${(d.body||'').trim()}\n`;
+}
+const TEMPLATE_BODY=`## 한 줄 결론
+(이 경기를 한 문장으로. "누가 이겼다"가 아니라 "무엇이 갈랐다".)
+
+## 경기 정보
+(대회, 날짜, 세트, 결과, 시리즈 상황. 피어리스라면 앞 세트에서 소진된 것.)
+
+## 밴픽: 양 팀은 무엇을 노렸나
+(밴·픽 순서를 따라가며 왜 먼저 가져갔나, 왜 밴했나. 플렉스 픽, 진영 선택, 피어리스로 좁아진 풀.)
+
+## 게임 플랜: 각 조합의 이기는 방법
+(초반 주도권, 한타, 스플릿, 시야 등. 두 계획이 어디서 부딪히나.)
+
+## 분기점
+### 1. (00:00) 장면 제목
+(무슨 일이 있었나, 왜 그 선택을 했을까, 무엇이 바뀌었나.)
+
+### 2. (00:00) 장면 제목
+(설명)
+
+## 데이터로 확인: 평소에도 그런가
+(이번 경기의 패턴이 이 팀의 평소 모습인지. 데이터는 원인이 아니라 경향 확인에만.)
+
+## 정리와 다음 관전 포인트
+(무엇이 승부를 갈랐나, 다음 경기에서 볼 것.)`;
+const BOXES=[['조합이 나온 경기 (챔피언)','@search blue.mid=오리아나'],['팀이 고른 조합','@search team="젠지" blue.mid=오리아나'],['피어리스 시리즈','@series pick=latest set=3'],['경기 하나 밴픽','@game id=게임ID'],
+  ['팀 지표','@team name="젠지"'],['팀 지표 몇 개만','@team name="젠지" show=gd15,barS'],['지표 하나 리그 순위','@rank stat=barS team="젠지"'],['최근 흐름','@form team="젠지" n=10'],['경기 흐름 (최근 경기)','@flow team="젠지"']];
+
+function renderWrite(id){
+  const box=$('#write-box');watchDrafts();
+  if(!id||id==='new'){
+    const nid='c'+Date.now().toString(36);
+    S.w={id:nid,title:'',date:new Date().toISOString().slice(0,10),kind:'column',kick:'',lede:'',teams:'',body:''};S.wid=nid;S.wdirty=false;
+    history.replaceState(null,'','#write-'+nid);
+  }else if(!S.w||S.w.id!==id){
+    if(DRAFTS===null||(DRAFT_STATE==='loading'&&!DRAFTS[id])){box.innerHTML='<p class="muted">원고를 불러오는 중…</p>';S.wid=id;return}
+    const d=DRAFTS[id];if(!d){box.innerHTML='<div class="card empty-state"><h2>원고를 찾을 수 없어요</h2><a class="btn" href="#columns">칼럼으로</a></div>';return}
+    S.w={id,title:'',date:'',kind:'column',kick:'',lede:'',teams:'',body:'',...d};S.wid=id;S.wdirty=false;
+  }
+  const w=S.w,f=(k,label,ph,type)=>`<label class="wf"><span>${label}</span><input ${type?`type="${type}"`:''} data-wf="${k}" value="${esc(w[k]||'')}" placeholder="${esc(ph||'')}"></label>`;
+  box.innerHTML=`<div class="wtop"><a class="chip" href="#columns">← 칼럼</a><span class="wstat" id="wstat">${S.wmsg||''}</span>
+      <button class="btn" type="button" data-wtpl>견본 불러오기</button><button class="btn" type="button" data-wdl>.md 내려받기</button><button class="btn" type="button" data-wdel>삭제</button><button class="btn primary" type="button" data-wsave>저장</button></div>
+    <div class="wlay"><section class="card wedit">
+      ${f('title','제목','무엇이 승부를 갈랐나')}
+      <div class="wrow">${f('date','날짜','2026-11-21','date')}<label class="wf"><span>종류</span><select data-wf="kind"><option value="column" ${w.kind!=='note'?'selected':''}>칼럼</option><option value="note" ${w.kind==='note'?'selected':''}>분석 노트</option></select></label>${f('kick','머리말','경기 분석')}</div>
+      ${f('teams','관련 팀','Gen.G, T1 (영문, 쉼표)')}
+      ${f('lede','요약','목록에 보일 한두 문장')}
+      <div class="wbar"><span>본문</span><select id="wbox"><option value="">근거 상자 넣기…</option>${BOXES.map(([l,v],i)=>`<option value="${i}">${esc(l)}</option>`).join('')}</select></div>
+      <textarea id="wbody" data-wf="body" spellcheck="false" placeholder="## 소제목&#10;&#10;문단은 빈 줄로 나눠요.&#10;&#10;@search blue.mid=오리아나">${esc(w.body||'')}</textarea>
+      <p class="rel" style="margin:8px 0 0">## 소제목, ### 작은 소제목, 빈 줄로 문단을 나눠요. @로 시작하는 줄은 근거 상자예요(챔피언·팀은 한글 이름도 돼요). 저장한 원고는 Claude에게 "원고 가져와"라고 하면 칼럼 파일로 옮겨요.</p>
+    </section><section class="card wprev"><div class="wprev-h">미리 보기</div><div id="wpreview" class="art"></div></section></div>`;
+  drawPreview();
+}
+function drawPreview(){
+  const el=$('#wpreview');if(!el||!S.w)return;
+  const w=S.w,{blocks,errs}=colParse(w.body);
+  const c={slug:'draft',title:w.title,date:w.date,kind:w.kind,blocks:blocks.filter(b=>b.type!=='err')};
+  let html='';
+  try{html=blocks.map(b=>b.type==='err'?`<p class="werr">${esc(b.text)}</p>`:columnBody({blocks:[b]},-1)).join('')}catch(e){html=`<p class="werr">미리 보기 오류: ${esc(e.message)}</p>`}
+  html=html.replace(/<div class="dact"[^>]*>[\s\S]*?<\/div>/g,'');
+  el.innerHTML=`<header><div class="kick">${w.kind==='note'?'분석 노트':esc(w.kick||'칼럼')}${w.date?' · '+fmtDate(w.date):''}</div><h1>${esc(w.title||'(제목 없음)')}</h1>${w.lede?`<p class="lede2">${esc(w.lede)}</p>`:''}</header>${errs.length?`<p class="werr">상자 문법 오류 ${errs.length}개</p>`:''}${html||'<p class="muted">본문을 쓰면 여기에 보여요.</p>'}`;
+}
+let WTIMER=null,PTIMER=null;
+function wSetStat(msg){S.wmsg=msg;const e=$('#wstat');if(e)e.textContent=msg}
+async function wSave(){
+  clearTimeout(WTIMER);if(!S.w)return;
+  if(!S.w.title.trim()&&!S.w.body.trim()){wSetStat('');return}
+  wSetStat('저장 중…');
+  try{const r=await saveDraft({...S.w});S.wdirty=false;wSetStat(r==='local'?'이 브라우저에만 저장됨 (claude.ai 작업실 페이지에서 열면 서버에 저장돼요)':'저장됨 '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}))}
+  catch(e){wSetStat('저장 실패: '+(e&&e.code==='quota_exceeded'?'저장 공간이 가득 찼어요':(e&&e.message)||'다시 시도해 주세요'))}
+}
+document.addEventListener('input',e=>{
+  const k=e.target&&e.target.dataset&&e.target.dataset.wf;if(!k||!S.w)return;
+  S.w[k]=e.target.value;S.wdirty=true;wSetStat('저장 안 됨');
+  clearTimeout(PTIMER);PTIMER=setTimeout(drawPreview,350);
+  clearTimeout(WTIMER);WTIMER=setTimeout(wSave,3000);   // 입력이 멈추고 3초 뒤 자동 저장
+});
+document.addEventListener('change',e=>{
+  if(e.target&&e.target.dataset&&e.target.dataset.wf==='kind'&&S.w){S.w.kind=e.target.value;drawPreview();wSave()}
+  if(e.target&&e.target.id==='wbox'&&e.target.value!==''){
+    const ta=$('#wbody'),txt=BOXES[+e.target.value][1],pos=ta.selectionStart??ta.value.length;
+    ta.value=ta.value.slice(0,pos).replace(/\s*$/,'')+(pos?'\n\n':'')+txt+'\n\n'+ta.value.slice(pos).replace(/^\s*/,'');
+    S.w.body=ta.value;e.target.value='';drawPreview();wSetStat('저장 안 됨');clearTimeout(WTIMER);WTIMER=setTimeout(wSave,3000);ta.focus();
+  }
+});
+document.addEventListener('click',async e=>{
+  const t=e.target;if(!t.closest)return;
+  if(t.closest('[data-wsave]')){wSave();return}
+  if(t.closest('[data-wtpl]')&&S.w){
+    if(S.w.body.trim()&&!t.closest('[data-wtpl]').dataset.sure){const b=t.closest('[data-wtpl]');b.dataset.sure='1';b.textContent='본문을 견본으로 바꿀까요? 다시 누르기';setTimeout(()=>{b.textContent='견본 불러오기';delete b.dataset.sure},3000);return}
+    S.w.body=TEMPLATE_BODY;if(!S.w.kick)S.w.kick='경기 분석';renderWrite(S.w.id);wSetStat('저장 안 됨');clearTimeout(WTIMER);WTIMER=setTimeout(wSave,3000);return}
+  if(t.closest('[data-wdel]')&&S.w){
+    const b=t.closest('[data-wdel]');
+    if(!b.dataset.sure){b.dataset.sure='1';b.textContent='정말 삭제? 다시 누르기';setTimeout(()=>{b.textContent='삭제';delete b.dataset.sure},3000);return}
+    clearTimeout(WTIMER);await deleteDraft(S.w.id);S.w=null;location.hash='columns';return}
+  if(t.closest('[data-wdl]')&&S.w){
+    const md=draftMd(S.w),name=(S.w.date||'draft')+'-'+(S.w.title||'칼럼').replace(/[^\w가-힣]+/g,'-').slice(0,40)+'.md';
+    let dl=null;try{dl=window.claude&&await window.claude.use('downloads')}catch(x){}
+    if(dl){try{await dl.save({filename:name,data:md})}catch(x){}return}
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));a.download=name;a.click();return}
+});
+window.addEventListener('beforeunload',()=>{if(S.wdirty)wSave()});
+
 /* ---------- 화면 전환 + 시작 ---------- */
 function route(){
-  const h=location.hash,mc=/^#column-(\d+)$/.exec(h),mt=/^#team-(\d+)$/.exec(h);
-  const v=mc?'column':mt?'team':h==='#columns'?'columns':h==='#series'?'series':h==='#search'?'search':h==='#champs'?'champs':'teams';
-  for(const k of['teams','team','champs','search','series','columns','column'])$('#view-'+k).hidden=k!==v;
-  const nav=v==='column'?'columns':v==='team'?'teams':v;
+  const h=location.hash,mc=/^#column-(\d+)$/.exec(h),mt=/^#team-(\d+)$/.exec(h),mw=/^#write-([\w-]+)$/.exec(h);
+  if(!$('#view-write').hidden&&S.wdirty&&!mw)wSave();
+  const v=mw?'write':mc?'column':mt?'team':h==='#columns'?'columns':h==='#series'?'series':h==='#search'?'search':h==='#champs'?'champs':'teams';
+  for(const k of['teams','team','champs','search','series','columns','column','write'])$('#view-'+k).hidden=k!==v;
+  const nav=v==='column'||v==='write'?'columns':v==='team'?'teams':v;
   for(const k of['teams','champs','search','series','columns'])$('#nav-'+k).setAttribute('aria-current',k===nav?'page':'false');
   if(v==='champs')renderChamps();
   if(v==='series')renderSeries();
   if(v==='column')renderColumn(+mc[1]);
   if(v==='teams')renderTeams();
   if(v==='team')renderTeam(+mt[1]);
+  if(v==='columns')renderColumns();
+  if(v==='write'&&(!S.w||S.w.id!==mw[1]))renderWrite(mw[1]);
 }
 window.addEventListener('hashchange',route);
 

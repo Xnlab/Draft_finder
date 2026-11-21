@@ -138,3 +138,9 @@ def test_rank_box():
     c = parse_column('---\ntitle: t\ndate: 2026-01-01\n---\n@rank stat=barS team="Gen.G"\n\n@rank stat=gd15 league=LPL', "x")
     assert c["blocks"][0] == {"type": "rank", "stat": "barS", "team": "Gen.G"}
     assert c["blocks"][1] == {"type": "rank", "stat": "gd15", "league": "LPL"}
+
+
+def test_subheadings():
+    c = parse_column("---\ntitle: t\ndate: 2026-01-01\n---\n## 분기점\n### 1. (12:30) 첫 용\n설명", "x")
+    assert [b["type"] for b in c["blocks"]] == ["h", "h3", "p"]
+    assert c["blocks"][1]["text"] == "1. (12:30) 첫 용"

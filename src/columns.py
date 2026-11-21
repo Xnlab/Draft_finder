@@ -186,7 +186,7 @@ def parse_column(text: str, slug: str = "") -> dict:
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", meta["date"]):
         raise ColumnError(f"{slug}: date는 2026-11-19 모양이어야 합니다")
     # 소제목 줄과 상자 줄은 빈 줄 없이 붙여 써도 따로 떼어 읽는다
-    body = re.sub(r"^(## .*|@\w+.*)$", r"\n\1\n", m.group(2), flags=re.M)
+    body = re.sub(r"^(#{2,3} .*|@\w+.*)$", r"\n\1\n", m.group(2), flags=re.M)
     blocks = []
     for i, para in enumerate(re.split(r"\n\s*\n", body.strip()), 1):
         para = para.strip()
@@ -202,6 +202,8 @@ def parse_column(text: str, slug: str = "") -> dict:
                 blocks.append({"type": kind, **_check_embed(kind, _args(em.group(2)))})
             except ColumnError as e:
                 raise ColumnError(f"{slug} {i}번째 문단: {e}") from None
+        elif para.startswith("### "):
+            blocks.append({"type": "h3", "text": para[4:].strip()})
         elif para.startswith("## "):
             blocks.append({"type": "h", "text": para[3:].strip()})
         else:
