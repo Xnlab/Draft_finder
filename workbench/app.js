@@ -508,40 +508,6 @@ function searchLabel(b){
   if(b.pos==='exact')f.push('같은 포지션만');
   return{q:bl&&rd?`${bl} vs ${rd}`:(bl||rd),f};
 }
-function searchWidget(b,ref){
-  const miss=[];
-  for(const side of['blue','red'])for(const en of Object.values(b.board[side]||{}))if(CHIDX[en]==null)miss.push(en);
-  if(miss.length)return `<section class="wbox"><div class="wh"><span class="b">근거</span><span>챔피언을 찾을 수 없어요: ${esc(miss.join(', '))}</span></div></section>`;
-  const st={blue:toArr(b.board.blue),red:toArr(b.board.red),patch:b.patch||'all',sets:b.sets||'all',pos:b.pos||'any',leagues:new Set(b.leagues||[])};
-  const res=withState(st,()=>{const sel=selection();return{sel,...run(sel)}});
-  const total=res.sel.length,list=res.list.filter(r=>r.matched===total);
-  const lab=searchLabel(b);
-  const head=`<div class="wh"><span class="b">근거</span><span>${lab.q}</span>${lab.f.map(x=>`<span class="tag">${esc(x)}</span>`).join('')}</div>`;
-  if(!list.length)return `<section class="wbox">${head}<p class="muted" style="margin:0">조건에 맞는 경기가 없어요.</p></section>`;
-  const n=list.length,wins=list.filter(r=>r.win).length,pct=Math.round(wins/n*100);
-  const gds=list.map(r=>r.gd).filter(v=>v!=null),gd=gds.length?gds.reduce((a,v)=>a+v,0)/gds.length:null;
-  const veil=S.spoiler&&!S.statsRevealed;
-  const who=res.both?`${res.persp==='blue'?'블루':'레드'}로 고른 팀`:'고른 챔피언을 쓴 팀';
-  const stats=veil
-    ?`<div class="wstats one"><div>결과 가림 중이라 승률과 골드 차이는 가렸어요. <button class="btn" type="button" data-stats>통계 보기</button></div></div>`
-    :`<div class="wstats"><div><b>${n.toLocaleString('ko-KR')}</b>찾은 경기</div><div><b>${pct}%</b>${esc(who)} 승률 (${wins}승 ${n-wins}패)</div><div><b>${fmtGd(gd)}</b>15분 평균 골드 차이</div></div>`;
-  const small=n<10?'<p style="margin:0 0 10px"><span class="tag warn">표본이 적어요. 참고용으로만 봐 주세요</span></p>':'';
-  return `<section class="wbox">${head}${stats}${small}<div class="games one">${list.slice(0,3).map(cardHtml).join('')}</div>
-    <div class="dact" style="margin-top:12px"><button class="btn" type="button" data-wsearch="${ref}">검색기에서 열기 (${n.toLocaleString('ko-KR')}경기 전체)</button></div></section>`;
-}
-function seriesWidget(b){
-  const s=pickSeries(b);if(!s)return '';
-  const n=Math.min(Math.max(b.set==null?s.k:b.set,0),s.k),con=consumedAfter(s,n),pop=popBlockHtml(con);
-  return `<section class="wbox"><div class="wh"><span class="b">근거</span><span>${esc(s.league)} · ${fmtDate(s.date)} · ${esc(s.A)} vs ${esc(s.B)}</span><span class="tag">${n}세트 후</span></div>
-    <p style="margin:0 0 10px"><b>${n}세트까지 챔피언 ${con.size}명이 소진됐어요.</b> 인기 상위 ${pop.total}명 중 ${pop.used}명이 이미 쓰였어요.</p>
-    <div class="tpanels">${teamPanelHtml(s,s.A,n)}${teamPanelHtml(s,s.B,n)}</div>
-    <h5 class="sub5">인기 픽은 얼마나 남았을까</h5><div class="use">${pop.rows}</div>
-    <div class="dact" style="margin-top:12px"><button class="btn" type="button" data-wseries="${s.id}:${n}">시리즈 복기 열기</button></div></section>`;
-}
-function gameWidget(b){
-  const g=pickGame(b);if(!g)return '';
-  return `<section class="wbox"><div class="wh"><span class="b">근거</span><span>경기 하나</span></div><div class="games one">${gameStripHtml(g)}</div></section>`;
-}
 function columnBody(c,i){
   return c.blocks.map((b,j)=>{
     if(b.type==='p')return `<p>${esc(b.text)}</p>`;
@@ -679,6 +645,9 @@ function buildTeams(){
   TEAMS=[...map.values()].sort((a,b)=>b.games.length-a.games.length);
   TEAMS.forEach((t,i)=>{t.id=i;t.league=Object.entries(t.leagues).sort((a,b)=>b[1]-a[1])[0][0];TEAMIDX[t.name]=i});
 }
+/* 받침 여부: 한글은 종성, 숫자는 읽는 소리(1 일, 3 삼…)로 본다. 영문 등은 받침 없음으로 친다 */
+const hasB=w=>{const ch=String(w).trim().slice(-1),c=ch.charCodeAt(0)-0xAC00;if(c>=0&&c<11172)return c%28!==0;return '013678'.includes(ch)};
+const eul=w=>hasB(w)?'을':'를',eun=w=>hasB(w)?'은':'는';
 const josa=w=>{const c=w.charCodeAt(w.length-1)-0xAC00;return c>=0&&c<11172&&c%28!==0?'이':'가'};   // 받침이 있으면 이, 없으면 가
 function distOf(list){const c={};let n=0;for(const{g,code}of list){const a=arcOf(g,code);if(a){c[a]=(c[a]||0)+1;n++}}return{c,n}}
 function leagueDist(lg){
@@ -1084,20 +1053,84 @@ function teamBody(t,mine){
 
 /* ---------- 칼럼 상자: @team(팀 지표), @form(최근 흐름), @flow(경기 하나의 흐름) ---------- */
 const findTeam=name=>TEAMIDX[name]!=null?TEAMS[TEAMIDX[name]]:null;
-const wErr=msg=>`<section class="wbox"><div class="wh"><span class="b">근거</span><span>${esc(msg)}</span></div></section>`;
+/* ---------- 근거 상자 공통 틀: 결론 한 문장(제목) → 핵심 숫자 → 근거 → 출처 한 줄 ---------- */
+const seasonOf=()=>G.length?G[G.length-1].d.slice(0,4)+' 시즌':'';
+const srcOf=()=>META.demo?'데모 데이터(실제 경기가 아니에요)':"데이터: Oracle's Elixir";
+function wbox({tags,title,body,foot}){
+  return `<section class="wbox"><div class="wk"><span class="b">근거</span>${(tags||[]).map(t=>`<span class="wtag">${t}</span>`).join('')}</div>
+    ${title?`<h4 class="wt">${title}</h4>`:''}${body}<p class="wsrc">${foot?foot+' · ':''}${esc(seasonOf())} · ${esc(srcOf())}</p></section>`;
+}
+/* 첫 하나만 보이고 나머지는 접어 둔다 (공개 사이트에서도 스크립트 없이 열린다) */
+function foldList(items,label){
+  if(items.length<=1)return items.join('');
+  return `${items[0]}<details class="wmore"><summary>${label} ${items.length-1}개 더 보기</summary>${items.slice(1).join('')}</details>`;
+}
+const wErr=msg=>`<section class="wbox"><div class="wk"><span class="b">근거</span></div><p class="muted" style="margin:0">${esc(msg)}</p></section>`;
 const wLoading='<section class="wbox"><p class="muted" style="margin:0">지표를 불러오는 중이에요…</p></section>';
+
+function searchWidget(b,ref){
+  const miss=[];
+  for(const side of['blue','red'])for(const en of Object.values(b.board[side]||{}))if(CHIDX[en]==null)miss.push(en);
+  if(miss.length)return wErr(`챔피언을 찾을 수 없어요: ${miss.join(', ')}`);
+  const st={blue:toArr(b.board.blue),red:toArr(b.board.red),patch:b.patch||'all',sets:b.sets||'all',pos:b.pos||'any',leagues:new Set(b.leagues||[])};
+  const res=withState(st,()=>{const sel=selection();return{sel,...run(sel)}});
+  const total=res.sel.length,list=res.list.filter(r=>r.matched===total),lab=searchLabel(b);
+  const part=side=>Object.entries(b.board[side]||{}).map(([r,en])=>`${ROLE_KO[r]} ${esc(CHIDX[en]!=null?CH[CHIDX[en]].ko:en)}`).join(' + ');
+  const tags=[esc(lab.q),...lab.f.map(esc)];
+  if(!list.length)return wbox({tags,title:'조건에 맞는 경기가 없어요',body:'',foot:''});
+  const n=list.length,wins=list.filter(r=>r.win).length,pct=Math.round(wins/n*100);
+  const gds=list.map(r=>r.gd).filter(v=>v!=null),gd=gds.length?gds.reduce((a,v)=>a+v,0)/gds.length:null;
+  const veil=S.spoiler&&!S.statsRevealed,who=res.both?part(res.persp):lab.q;
+  const title=veil?`${who}: ${n.toLocaleString('ko-KR')}경기를 찾았어요`:n<5?`${who}${eul(who)} 고른 경기는 ${n}경기뿐이에요 (${wins}승 ${n-wins}패)`:`${who}${eul(who)} 고른 팀이 ${n.toLocaleString('ko-KR')}경기에서 ${pct}% 이겼어요`;
+  const nums=veil
+    ?`<div class="wstats one"><div>결과 가림 중이라 승률과 골드 차이는 가렸어요. <button class="btn" type="button" data-stats>통계 보기</button></div></div>`
+    :`<div class="wbig"><div class="wmain"><b>${pct}%</b><span>승률 · ${wins}승 ${n-wins}패</span></div><div class="wside"><div><b>${n.toLocaleString('ko-KR')}</b><span>찾은 경기</span></div><div><b>${fmtGd(gd)}</b><span>15분 평균 골드 차이</span></div></div></div>`;
+  const small=n<10?'<p style="margin:0 0 10px"><span class="tag warn">표본이 적어요. 참고용으로만 봐 주세요</span></p>':'';
+  return wbox({tags,title,body:`${nums}${small}<div class="games one">${foldList(list.slice(0,4).map(cardHtml),'경기')}</div>
+    <div class="dact" style="margin-top:12px"><button class="btn" type="button" data-wsearch="${ref}">검색기에서 열기 (${n.toLocaleString('ko-KR')}경기 전체)</button></div>`,
+    foot:`${res.both?`${who} 쪽 기준`:'고른 챔피언을 쓴 팀 기준'}, 포지션이 달라도 같은 챔피언이면 셌어요`});
+}
+function seriesWidget(b){
+  const s=pickSeries(b);if(!s)return '';
+  const n=Math.min(Math.max(b.set==null?s.k:b.set,0),s.k),con=consumedAfter(s,n),pop=popBlockHtml(con);
+  return wbox({tags:[esc(s.league),fmtDate(s.date),`${esc(tn(s.A))} vs ${esc(tn(s.B))}`,`${n}세트 후`],
+    title:`${n}세트까지 챔피언 ${con.size}명이 소진됐고, 인기 상위 ${pop.total}명 중 ${pop.used}명이 이미 쓰였어요`,
+    body:`<div class="tpanels">${teamPanelHtml(s,s.A,n)}${teamPanelHtml(s,s.B,n)}</div>
+    <h5 class="sub5">포지션별 인기 상위 챔피언 중 남은 것</h5><div class="use">${pop.rows}</div>
+    <div class="dact" style="margin-top:12px"><button class="btn" type="button" data-wseries="${s.id}:${n}">시리즈 복기 열기</button></div>`,
+    foot:'인기 순위는 시즌 전체 포지션별 픽 수 기준'});
+}
+function gameWidget(b){
+  const g=pickGame(b);if(!g)return '';
+  return wbox({tags:[esc(g.lg),fmtDate(g.d),`${g.s}세트`],title:`${esc(tn(g.bt))} vs ${esc(tn(g.rt))}`,body:`<div class="games one">${gameStripHtml(g)}</div>`,foot:''});
+}
 function teamWidget(b){
   const t=findTeam(b.name);if(!t)return wErr(`팀을 찾을 수 없어요: ${b.name}`);
   if(ST===null){loadStats();return wLoading}
-  const inner=teamStatsInner(t);if(!inner)return wErr(`${b.name}: 지표가 없어요`);
-  return `<section class="wbox"><div class="wh"><span class="b">근거</span><span>${emblem(t.name,20)} ${esc(tn(t.name))} 팀 지표</span><span class="tag">${esc(t.league)} 팀들과 비교</span></div>${inner}</section>`;
+  const m=ST?teamMetrics(t):null;if(!m)return wErr(`${b.name}: 지표가 없어요`);
+  const lg=t.league,veil=S.spoiler&&!S.statsRevealed;
+  const ranked=MDEF.filter(x=>m[x[1]]!=null&&!(x[5]&&veil)).map(x=>{const rk=rankOf(lg,x[1],x[4],m[x[1]]);return{x,rk}}).filter(o=>o.rk);
+  const n=ranked.length?ranked[0].rk.n:0,third=Math.ceil(n/3);
+  const top=ranked.filter(o=>o.rk.r<=third).sort((a,b2)=>a.rk.r-b2.rk.r),low=ranked.filter(o=>o.rk.r>n-third).sort((a,b2)=>b2.rk.r-a.rk.r);
+  const chip=(o,cls)=>`<span class="mchip ${cls}"><b>${o.rk.r}위</b> ${o.x[2]} <em>${o.x[3](m[o.x[1]])}</em></span>`;
+  return wbox({tags:[`${emblem(t.name,18)} ${esc(tn(t.name))}`,`${esc(lg)} ${n}팀과 비교`],
+    title:`${esc(tn(t.name))}${eun(tn(t.name))} 지표 ${ranked.length}개 중 ${top.length}개가 ${esc(lg)} 상위권, ${low.length}개가 하위권이에요`,
+    body:`<div class="tw">${radarSvg(t,m)}<div class="twc"><h5>앞서는 지표</h5><div class="mchips">${top.slice(0,4).map(o=>chip(o,'good')).join('')||'<span class="muted">없어요</span>'}</div>
+      <h5>뒤처지는 지표</h5><div class="mchips">${low.slice(0,3).map(o=>chip(o,'bad')).join('')||'<span class="muted">없어요</span>'}</div></div></div>
+      <details class="wmore"><summary>지표 ${ranked.length}개 모두 보기</summary>${teamStatsInner(t)}</details>`,
+    foot:`${m.n}경기 기준, 순위는 ${esc(lg)}에서 8경기 이상 치른 ${n}팀 중`});
 }
 function formWidget(b){
   const t=findTeam(b.team);if(!t)return wErr(`팀을 찾을 수 없어요: ${b.team}`);
   const list=t.games.filter(x=>!b.until||x.g.d<=b.until).slice(-b.n);
   if(!list.length)return wErr('조건에 맞는 경기가 없어요');
-  return `<section class="wbox"><div class="wh"><span class="b">근거</span><span>${emblem(t.name,20)} ${esc(tn(t.name))} 최근 ${list.length}경기</span><span class="tag">${fmtDate(list[0].g.d)} ~ ${fmtDate(list[list.length-1].g.d)}</span><span class="tag">막대는 15분 골드 차이</span></div>${formInner(list)}</section>`;
+  const w=list.filter(x=>x.g.w===x.code).length,ahead=list.filter(x=>x.g.gd!=null&&(x.code==='b'?x.g.gd:-x.g.gd)>0).length;
+  const veil=S.spoiler&&!S.statsRevealed;
+  return wbox({tags:[`${emblem(t.name,18)} ${esc(tn(t.name))}`,`${fmtDate(list[0].g.d)} ~ ${fmtDate(list[list.length-1].g.d)}`],
+    title:veil?`${esc(tn(t.name))}의 최근 ${list.length}경기`:`${esc(tn(t.name))}${eun(tn(t.name))} 최근 ${list.length}경기에서 ${w}승 ${list.length-w}패, 15분에 앞선 경기는 ${ahead}번이에요`,
+    body:veil?'<p class="muted">결과 가림 중이라 가렸어요.</p>':formInner(list),foot:'막대는 15분 골드 차이, 아래는 상대 팀과 승패'});
 }
+
 /* 경기 하나의 시간대별 흐름: 골드 곡선, 10·15분 차이, 먼저 가져간 오브젝트, 최종 수치 */
 function flowWidget(b){
   const g=pickGame(b);if(!g)return wErr('경기를 찾을 수 없어요');
@@ -1114,8 +1147,9 @@ function flowWidget(b){
   const fchips=firsts.filter(x=>x[1]!=null).map(([l,ours])=>`<span class="fchip ${ours?'us':'them'}">${l} · ${ours?esc(teamStyle(me).short):esc(teamStyle(them).short)}</span>`).join('');
   const pair=(l,a,b2)=>a==null&&b2==null?'':`<tr><td>${l}</td><td class="num"><b>${a??'-'}</b></td><td class="num">${b2??'-'}</td></tr>`;
   const fin=[pair('킬',T('k'),O('k')),pair('포탑',T('tow'),O('tow')),pair('용',T('drg'),O('drg')),pair('공허 유충',T('grub'),O('grub')),pair('바론',T('bar'),O('bar')),pair('억제기',T('inh'),O('inh')),pair('포탑 방패',T('plt'),O('plt'))].join('');
-  return `<section class="wbox"><div class="wh"><span class="b">근거</span><span>${esc(g.lg)} · ${fmtDate(g.d)} · ${g.s}세트</span><span>${emblem(me,20)} ${esc(tn(me))} 기준 vs ${emblem(them,20)} ${esc(tn(them))}</span><span class="gres ${win?'win':'loss'}" style="margin-left:0">${win?'승':'패'}</span>${g.len?`<span class="tag">${g.len}분</span>`:''}</div>
-    ${b.team&&g.bt!==b.team&&g.rt!==b.team?`<p style="margin:0 0 10px"><span class="tag warn">${esc(b.team)}가 뛴 경기가 아니라 블루 진영 기준으로 보여 줘요</span></p>`:''}
+  const a=arcOf(g,code),cv=curve(g,code);
+  const title=`${esc(tn(me))}의 ${a?ARC_LABEL[a]:(win?'승리':'패배')}${cv?`: 15분 ${fmtGd(cv[1])}, 25분 ${fmtGd(cv[3])}`:''}`;
+  return wbox({tags:[esc(g.lg),fmtDate(g.d),`${g.s}세트`,`${emblem(me,18)} ${esc(tn(me))} 기준`,g.len?`${g.len}분`:''].filter(Boolean),title,body:`    ${b.team&&g.bt!==b.team&&g.rt!==b.team?`<p style="margin:0 0 10px"><span class="tag warn">${esc(b.team)}가 뛴 경기가 아니라 블루 진영 기준으로 보여 줘요</span></p>`:''}
     <div class="games one" style="margin-bottom:12px">${gameStripHtml(g)}</div>
     <h5 class="sub5">시간대별 골드 차이 (${esc(tn(me))} 기준)</h5>${svg}
     <div class="mgrid">
@@ -1125,7 +1159,7 @@ function flowWidget(b){
         <tr><td>킬</td><td class="num">-</td><td class="num">${T('k15')??'-'} : ${O('k15')??'-'}</td></tr></tbody></table></div>
       <div class="mpanel"><h5>최종 <span class="muted" style="font-weight:500">${esc(teamStyle(me).short)} : ${esc(teamStyle(them).short)}</span></h5><table class="ptable"><tbody>${fin}</tbody></table></div>
     </div>
-    <h5 class="sub5">먼저 가져간 것</h5><div class="fchips">${fchips}</div></section>`;
+    <h5 class="sub5">먼저 가져간 것</h5><div class="fchips">${fchips}</div>`,foot:'골드·경험치·CS 차이는 10·15·20·25분 시점 값'});
 }
 /* 공개 사이트를 만들 때 쓰는 내보내기: 칼럼마다 근거 상자까지 계산한 본문 HTML (누르는 버튼은 뺀다) */
 window.dfExport=async function(){

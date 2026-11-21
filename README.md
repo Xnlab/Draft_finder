@@ -27,6 +27,8 @@ LoL e스포츠 **칼럼 사이트**와, 칼럼을 쓰기 위한 **개인 분석 
 
 글의 머리말에 `kind: note`를 쓰면 분석 노트, `draft: true`면 초안(공개 사이트에 안 실림)이다. 스카우팅 리포트 견본은 `columns/_template-scouting.md`.
 
+상자는 모두 같은 틀이다: 결론 한 문장(제목) → 핵심 숫자 → 근거(경기 카드는 하나만 보이고 나머지는 접힘) → 출처·기준 한 줄. 공개 사이트는 밝고 글 위주로, 첫 글을 크게 보여 주고 글마다 읽는 시간, 팀 태그, 목차(넓은 화면), 글쓴이 소개, 함께 읽을 글이 붙는다. 필명·소개·이메일은 `site_public/author.json`에서 고친다.
+
 ## 데이터
 Oracle's Elixir의 시즌별 CSV를 쓴다. **원본 CSV와 전처리 결과는 저장소에 올리지 않는다**(`data/`는 `.gitignore`). 받는 곳과 이용 조건은 [Oracle's Elixir 다운로드 페이지](https://oracleselixir.com/tools/downloads)에서 확인한다. 데이터 이용 조건 확인 전에는 사이트를 공개하지 않는다.
 

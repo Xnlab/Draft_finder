@@ -62,6 +62,18 @@ def render_columns(site_dir: Path) -> list[dict]:
         server.shutdown()
 
 
+def reading_minutes(col: dict) -> int:
+    """한글 기준 1분에 약 500자, 근거 상자 하나에 30초로 잡는다."""
+    chars = sum(len(b.get("text", "").replace(" ", "")) for b in col["blocks"] if b["type"] in ("p", "h"))
+    boxes = sum(1 for b in col["blocks"] if b["type"] not in ("p", "h"))
+    return max(1, round(chars / 500 + boxes * 0.5))
+
+
+def team_names_ko() -> dict:
+    data = json.loads((APP_DIR / "teams.json").read_text(encoding="utf-8"))
+    return {k: v.get("ko", k) for k, v in data.items() if not k.startswith("_")}
+
+
 def build_public(df: pd.DataFrame, out: Path, demo: bool, columns_dir: Path, drafts: bool = False,
                  ko_by_en: dict | None = None, icon_files: dict | None = None, version: str = "",
                  download_icons: bool = True) -> dict:
@@ -74,13 +86,14 @@ def build_public(df: pd.DataFrame, out: Path, demo: bool, columns_dir: Path, dra
         for f in ("index.html", "app.js", "teams.json"):
             shutil.copy(APP_DIR / f, work / f)
         rendered = {r["slug"]: r["html"] for r in render_columns(work)}
-        posts, icons = [], set()
+        posts, icons, ko = [], set(), team_names_ko()
         for c in keep:
             html = rendered[c["slug"]]
             used = ICON_RE.findall(html)
             icons.update(used)
             posts.append({k: c[k] for k in ("slug", "title", "date", "kick", "lede", "kind", "draft")}
-                         | {"html": html, "icons": list(dict.fromkeys(used))[:6]})
+                         | {"html": html, "icons": list(dict.fromkeys(used))[:6], "minutes": reading_minutes(c),
+                            "tags": [ko.get(t, t) for t in c["teams"]]})
         (out / "icons").mkdir(exist_ok=True)
         for rel in icons:
             if (work / rel).exists():
@@ -88,7 +101,9 @@ def build_public(df: pd.DataFrame, out: Path, demo: bool, columns_dir: Path, dra
     page = (PUBLIC_SRC / "index.html").read_text(encoding="utf-8").replace("/*@@WORKBENCH_CSS@@*/", workbench_css())
     (out / "index.html").write_text(page, encoding="utf-8")
     shutil.copy(PUBLIC_SRC / "site.js", out / "site.js")
-    (out / "posts.json").write_text(json.dumps({"meta": {"demo": demo}, "posts": posts}, ensure_ascii=False),
+    author = {k: v for k, v in json.loads((PUBLIC_SRC / "author.json").read_text(encoding="utf-8")).items()
+              if not k.startswith("_")}
+    (out / "posts.json").write_text(json.dumps({"meta": {"demo": demo, "author": author}, "posts": posts}, ensure_ascii=False),
                                     encoding="utf-8")
     return {"posts": len(posts), "drafts_skipped": len(cols) - len(keep), "icons": len(icons)}
 

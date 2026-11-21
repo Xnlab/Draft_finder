@@ -622,6 +622,33 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
 .fchip.us{background:var(--win-soft);color:var(--win)}.fchip.them{background:var(--surface-2);color:var(--muted)}
 .wbox .radar{max-width:300px}
 .wbox .mpanel .ptable td,.wbox .mpanel .ptable th{padding:5px 4px}
+/* 근거 상자 (칼럼): 결론 제목 → 핵심 숫자 → 근거 → 출처 */
+.wbox{padding:18px 20px 14px;border-radius:14px}
+.wk{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;font-size:.74rem;color:var(--muted)}
+.wk .b{background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:6px;font-weight:800}
+.wtag{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;background:var(--surface-2);font-weight:600}
+.wtag .eb{border-width:1px;box-shadow:none}
+.wt{margin:0 0 14px;font-size:1.08rem;line-height:1.5;font-weight:800;letter-spacing:-.01em;text-wrap:balance}
+.wbig{display:flex;align-items:flex-end;gap:28px;flex-wrap:wrap;margin:0 0 14px}
+.wmain b{display:block;font-size:2.6rem;line-height:1;font-weight:900;letter-spacing:-.03em;color:var(--accent);font-variant-numeric:tabular-nums}
+.wmain span,.wside span{display:block;font-size:.78rem;color:var(--muted);margin-top:6px}
+.wside{display:flex;gap:24px}
+.wside b{display:block;font-size:1.25rem;line-height:1.1;font-weight:800;font-variant-numeric:tabular-nums}
+.wmore{margin-top:10px}
+.wmore>summary{cursor:pointer;color:var(--accent);font-weight:700;font-size:.85rem;padding:6px 0;list-style:none}
+.wmore>summary::-webkit-details-marker{display:none}
+.wmore>summary:before{content:"+ "}
+.wmore[open]>summary:before{content:"− "}
+.wmore>.game,.wmore>.card{margin-top:10px}
+.wbox p.wsrc{margin:14px 0 0;padding-top:10px;border-top:1px solid var(--line);font-size:.72rem;color:var(--faint);line-height:1.5}
+.tw{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:18px;align-items:center}
+.twc h5{margin:0 0 8px;font-size:.78rem;color:var(--muted)}
+.twc h5:not(:first-child){margin-top:14px}
+.mchips{display:flex;flex-wrap:wrap;gap:6px}
+.mchip{font-size:.8rem;padding:5px 10px;border-radius:9px;background:var(--surface-2)}
+.mchip b{margin-right:3px}.mchip em{font-style:normal;color:var(--muted);margin-left:3px;font-variant-numeric:tabular-nums}
+.mchip.good b{color:var(--win)}.mchip.bad b{color:var(--loss)}
+@media (max-width:640px){.tw{grid-template-columns:minmax(0,1fr)}.wmain b{font-size:2.2rem}.wbox{padding:16px 14px 12px}}
 </style>
 
 <div class="wrap">
