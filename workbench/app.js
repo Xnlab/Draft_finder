@@ -178,7 +178,7 @@ function ringSvg(pct){
 function renderResults(){
   const box=$('#results'),sel=selection();
   if(!sel.length){
-    box.innerHTML=`<div class="card empty-state" style="margin-top:16px"><h2>챔피언을 하나만 골라도 찾아 드려요</h2><p class="muted" style="margin:0">위 보드에서 칸을 누르거나, 예시 버튼을 눌러 보세요.</p></div>`;
+    box.innerHTML=`<div class="card empty-state" style="margin-top:16px"><h2>챔피언을 하나만 골라도 찾아 드려요</h2><p class="muted" style="margin:0">위 보드에서 칸을 눌러 챔피언을 고르세요.</p></div>`;
     return;
   }
   const {list:all,persp,both}=run(sel);
@@ -858,7 +858,10 @@ function champLeagues(){
 function renderChamps(){
   const box=$('#champs-box');if(!box)return;
   const L=champLeagues(),last=PATCHES[PATCHES.length-1],last3=new Set(PATCHES.slice(-3));
-  const gs=G.filter(g=>(S.cl==='all'||g.lg===S.cl)&&(S.cpt==='all'||(S.cpt==='latest'?g.p===last:last3.has(g.p))));
+  const pOk=g=>S.cpt==='all'||(S.cpt==='latest'?g.p===last:S.cpt==='last3'?last3.has(g.p):g.p===S.cpt.slice(2));   // 'p:16.20'처럼 패치 하나를 고를 수 있다
+  const gs=G.filter(g=>(S.cl==='all'||g.lg===S.cl)&&pOk(g));
+  const pc={};G.forEach(g=>{if(S.cl==='all'||g.lg===S.cl)pc[g.p]=(pc[g.p]||0)+1});
+  const plist=PATCHES.slice().reverse().filter(p=>pc[p]);
   const ri=S.cr==='all'?null:+S.cr,n=gs.length;
   const pk={},wn={},rl={},bn={},bs={};
   for(const g of gs){
@@ -881,10 +884,11 @@ function renderChamps(){
     <section class="card story">
       ${leagueBar(L.main,S.cl,'cl','전체')}
       <div class="tools" style="margin-top:10px"><select class="sel" id="cl-more" aria-label="다른 리그"><option value="">다른 리그…</option>${L.rest.map(l=>`<option value="${esc(l)}" ${S.cl===l?'selected':''}>${esc(l)} (${L.cnt[l]}경기)</option>`).join('')}</select></div>
-      <div class="tools">${chip('cpt','all','전체 패치',S.cpt==='all')}${chip('cpt','last3','최근 3개 패치',S.cpt==='last3')}${chip('cpt','latest','최신 패치 '+last,S.cpt==='latest')}</div>
+      <div class="tools">${chip('cpt','all','전체 패치',S.cpt==='all')}${chip('cpt','last3','최근 3개 패치',S.cpt==='last3')}${chip('cpt','latest','최신 패치 '+last,S.cpt==='latest')}
+        <select class="sel" id="cpt-one" aria-label="패치 하나 고르기"><option value="">패치 고르기…</option>${plist.map(p=>`<option value="p:${esc(p)}" ${S.cpt==='p:'+p?'selected':''}>${esc(p)} (${pc[p]}경기)</option>`).join('')}</select></div>
       <div class="tabs rtabs" role="tablist" style="margin-top:14px"><button role="tab" type="button" data-cr="all" aria-selected="${S.cr==='all'}">모든 라인</button>${ROLES.map((r,i)=>`<button role="tab" type="button" data-cr="${i}" aria-selected="${S.cr===String(i)}"><em class="dot" style="background:${ROLE_COLORS[r]}"></em>${ROLE_KO[r]}</button>`).join('')}</div>
     </section>
-    <p class="muted" style="margin:0 0 10px;font-size:.85rem">${esc(S.cl==='all'?'전체 리그':lgLabel(S.cl))} · ${S.cpt==='all'?'전체 패치':S.cpt==='latest'?'패치 '+last:'최근 3개 패치'} · <b style="color:var(--fg)">${n.toLocaleString('ko-KR')}경기</b>${ri!=null?` · ${ROLE_KO[ROLES[ri]]}`:''}</p>
+    <p class="muted" style="margin:0 0 10px;font-size:.85rem">${esc(S.cl==='all'?'전체 리그':lgLabel(S.cl))} · ${S.cpt==='all'?'전체 패치':S.cpt==='latest'?'패치 '+last:S.cpt==='last3'?'최근 3개 패치':'패치 '+esc(S.cpt.slice(2))} · <b style="color:var(--fg)">${n.toLocaleString('ko-KR')}경기</b>${ri!=null?` · ${ROLE_KO[ROLES[ri]]}`:''}</p>
     ${n?`<div class="ctwo">
       <section class="card ctab"><h2>많이 뽑힌 챔피언</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th>포지션</th><th class="num">픽</th><th class="num" title="전체 경기 중 이 챔피언이 나온 경기의 비율">픽률</th><th class="num">승률</th></tr></thead><tbody>${pRows}</tbody></table></section>
       <section class="card ctab"><h2>많이 밴된 챔피언</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th class="num">밴</th><th class="num" title="전체 경기 중 이 챔피언이 밴된 경기의 비율">밴률</th><th title="블루 진영이 밴한 비율 · 레드 진영이 밴한 비율">밴한 진영</th></tr></thead><tbody>${bRows}</tbody></table></section>
@@ -1251,7 +1255,7 @@ function teamPickList(){
   const q=S.tq.trim().toLowerCase();
   let list=TEAMS.filter(t=>(S.tlg==='all'||t.league===S.tlg)&&(!q||t.name.toLowerCase().includes(q)||tn(t.name).toLowerCase().includes(q)));
   const total=list.length;list=list.slice(0,60);
-  return `<div class="egrid">${list.map(t=>`<div class="etile ${S.myTeam===t.name?'on':''}"><button type="button" class="ebtn" data-myteam="${esc(t.name)}" title="${esc(t.name)}">${emblem(t.name,64)}<span>${esc(tn(t.name))}</span></button><button type="button" class="eview" data-team="${t.id}" aria-label="${esc(tn(t.name))} 팀 페이지">팀 보기</button></div>`).join('')||'<p class="muted">찾는 팀이 없어요.</p>'}</div>${total>60?`<p class="muted" style="margin:10px 0 0;font-size:.82rem">${total-60}개 팀이 더 있어요. 이름으로 검색해 보세요.</p>`:''}`;
+  return `<div class="egrid">${list.map(t=>`<div class="etile ${S.myTeam===t.name?'on':''}"><button type="button" class="ebtn" data-myteam="${esc(t.name)}" title="${esc(t.name)}">${emblem(t.name,64)}<span>${esc(tn(t.name))}</span></button></div>`).join('')||'<p class="muted">찾는 팀이 없어요.</p>'}</div>${total>60?`<p class="muted" style="margin:10px 0 0;font-size:.82rem">${total-60}개 팀이 더 있어요. 이름으로 검색해 보세요.</p>`:''}`;
 }
 function renderTeams(){
   const box=$('#teams-box');if(!box)return;
@@ -1368,7 +1372,8 @@ document.addEventListener('keydown',e=>{
 MENUS.forEach(k=>$('#dd-'+k).onclick=e=>{e.stopPropagation();toggleMenu(k)});
 $('#reset').onclick=()=>{S.blue.fill(-1);S.red.fill(-1);S.shown=12;update()};
 $('#p-q').addEventListener('input',renderPicker);
-document.addEventListener('change',e=>{if(e.target&&e.target.id==='cl-more'&&e.target.value){S.cl=e.target.value;S.cn=20;renderChamps()}});
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='cl-more'&&e.target.value){S.cl=e.target.value;S.cn=20;renderChamps()}
+  if(e.target&&e.target.id==='cpt-one'&&e.target.value){S.cpt=e.target.value;S.cn=20;renderChamps()}});
 document.addEventListener('input',e=>{if(e.target&&e.target.id==='team-q'){S.tq=e.target.value;const el=$('#team-pick');if(el)el.innerHTML=teamPickList()}});
 $('#p-close').onclick=closePicker;
 $('#picker').addEventListener('click',e=>{
@@ -1428,6 +1433,5 @@ Promise.all([fetch('champs.json').then(r=>r.json()),fetch('games.json').then(r=>
   LEAGUES=[...new Set(G.map(x=>x.lg))].sort();
   if(!META.demo){$('#demo-pill').hidden=true;$('#foot').textContent='챔피언 이미지는 Riot Games Data Dragon을, 경기 데이터는 Oracle\'s Elixir(Tim Sevenhuysen)의 2026 파일을 사용했어요. 개인 작업실이에요. 링크를 공유하지 마세요.'}
   S.spoiler=store.get('df-spoiler')==='1';syncSpoiler();
-  setBoard({blue:{jng:'Vi',mid:'Orianna'}});
   renderColumns();route();update();
 }).catch(err=>{console.error(err);$('#view-teams').hidden=false;$('#teams-box').innerHTML='<div class="card empty-state"><h2>데이터를 불러오지 못했어요</h2><p class="muted" style="margin:0">잠시 후 다시 열어 주세요.</p></div>';$('#results').innerHTML='<div class="card empty-state"><h2>데이터를 불러오지 못했어요</h2><p class="muted" style="margin:0">잠시 후 다시 열어 주세요.</p></div>'});
