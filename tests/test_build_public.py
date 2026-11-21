@@ -27,6 +27,8 @@ def site(tmp_path_factory):
     cols = tmp_path_factory.mktemp("cols")
     for f in (ROOT / "columns").glob("*.md"):
         shutil.copy(f, cols / f.name)
+    (cols / "2026-11-20-box.md").write_text(   # 칼럼 원고에는 지금 상자가 없어서, 테스트용 상자 글을 따로 만든다
+        "---\ntitle: 상자 글\ndate: 2026-11-20\n---\n본문\n\n@search blue.mid=Orianna\n\n@series pick=longest set=2\n", encoding="utf-8")
     (cols / "2026-11-20-draft.md").write_text(
         "---\ntitle: 초안 글\ndate: 2026-11-20\ndraft: true\n---\n@team name=\"Gen.G\"\n", encoding="utf-8")
     stats = build_public(make_demo_games(n=300, seed=5), out, demo=True, columns_dir=cols, download_icons=False)
