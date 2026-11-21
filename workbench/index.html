@@ -791,6 +791,40 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
 .rk-leg i{display:inline-block;height:12px;width:0;margin-right:6px;vertical-align:-2px}
 .tm-def{text-decoration:underline dotted var(--faint);text-underline-offset:3px;cursor:help}
 @media (max-width:520px){.rk-row{grid-template-columns:20px minmax(0,110px) minmax(0,1fr) 52px;gap:6px;font-size:.8rem}.rk-t small{display:none}}
+/* 챔피언 순위: 리그 원형 아이콘 줄 + 포지션 탭 막대 (OP.GG 방식), 승률 막대 */
+.cfil{padding:16px 18px 18px;margin-bottom:18px}
+.lgrow{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 12px}
+.lgc{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;width:76px;border:0;background:none;padding:4px 0;font-size:.78rem;font-weight:700;color:var(--muted);cursor:pointer}
+.lgc-i{width:56px;height:56px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;border:2px solid transparent;transition:border-color .12s}
+.lgc-i .lb{border-radius:50%}
+.lgc:hover .lgc-i{border-color:var(--line)}
+.lgc.on .lgc-i{border-color:var(--accent)}
+.lgc.on{color:var(--fg)}
+.lgc-n{white-space:nowrap;max-width:76px;overflow:hidden;text-overflow:ellipsis}
+.lgc-all{font-size:.78rem;font-weight:900;color:var(--muted)}
+.lgc-more{position:relative}
+.lgc-more select{border:0;background:none;color:inherit;font:inherit;font-weight:700;width:76px;text-align:center;cursor:pointer}
+.rolebar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));background:var(--surface-2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.rolebar button{border:0;border-left:1px solid var(--line);background:none;padding:11px 4px;font-weight:700;font-size:.9rem;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px}
+.rolebar button:first-child{border-left:0}
+.rolebar button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
+.rolebar button[aria-selected="true"] .dot{box-shadow:0 0 0 2px var(--accent-fg)}
+.chead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+.chead-t{margin-right:auto;display:flex;align-items:baseline;gap:8px}
+.chead-t b{font-size:1.05rem}
+.chead-t span{color:var(--muted);font-size:.85rem}
+.wr-row,.wr-head{display:grid;grid-template-columns:28px minmax(0,190px) 44px minmax(0,1fr) 96px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+.wr-head{border-bottom:1px solid var(--line);padding:2px 0 6px}
+.wr-bar{position:relative;height:12px;background:var(--surface-2);border-radius:3px}
+.wr-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
+.wr-bar i.up{background:var(--win)}.wr-bar i.dn{background:var(--loss)}
+.wr-bar em{position:absolute;left:50%;top:-4px;bottom:-4px;border-left:1.5px dashed var(--fg);opacity:.45}
+.wr-ax{position:relative;height:14px}
+.wr-ax small{position:absolute;top:0;font-size:.68rem;color:var(--faint);transform:translateX(-50%)}
+.wr-ax small:nth-child(1){left:0;transform:none}.wr-ax small:nth-child(2){left:50%}.wr-ax small:nth-child(3){right:0;left:auto;transform:none}
+.wr-v{text-align:right;line-height:1.2}.wr-v b{display:block;font-variant-numeric:tabular-nums}.wr-v small{font-size:.7rem;color:var(--faint)}
+@media (max-width:640px){.rolebar{grid-template-columns:repeat(3,minmax(0,1fr))}.rolebar button:nth-child(4){border-left:0}.rolebar button:nth-child(n+4){border-top:1px solid var(--line)}
+  .wr-row,.wr-head{grid-template-columns:22px minmax(0,110px) minmax(0,1fr) 70px}.wr-row>span:nth-child(3),.wr-head>span:nth-child(3){display:none}}
 </style>
 
 <div class="wrap">
@@ -803,7 +837,7 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
       <a href="#series" id="nav-series">피어리스 복기</a>
       <a href="#columns" id="nav-columns">칼럼</a>
     </nav>
-    <button class="tgl" type="button" id="spoiler" role="switch" aria-checked="false" title="결과와 골드 차이를 가리고 밴픽만 먼저 봐요"><span>결과 가리기</span><i></i></button>
+    <button class="tgl" type="button" id="spoiler" role="switch" aria-checked="false" hidden><span>결과 가리기</span><i></i></button>
     <span class="demo" id="demo-pill">데모 데이터 · 실제 경기가 아니에요</span>
   </header>
 

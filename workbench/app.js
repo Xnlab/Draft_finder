@@ -863,39 +863,55 @@ function renderChamps(){
   const pc={};G.forEach(g=>{if(S.cl==='all'||g.lg===S.cl)pc[g.p]=(pc[g.p]||0)+1});
   const plist=PATCHES.slice().reverse().filter(p=>pc[p]);
   const ri=S.cr==='all'?null:+S.cr,n=gs.length;
-  const pk={},wn={},rl={},bn={},bs={};
+  const pk={},wn={},rl={},bn={};
   for(const g of gs){
     for(const code of['b','r'])g[code].forEach((c,i)=>{if(c<0||(ri!=null&&i!==ri))return;pk[c]=(pk[c]||0)+1;if(g.w===code)wn[c]=(wn[c]||0)+1;const o=rl[c]||(rl[c]=[0,0,0,0,0]);o[i]++});
-    for(const[side,list]of[['b',g.bb],['r',g.rb]])for(const c of list){if(ri!=null&&CH[c].roles[0]!==ROLES[ri])continue;bn[c]=(bn[c]||0)+1;const o=bs[c]||(bs[c]={b:0,r:0});o[side]++}
+    for(const c of g.bb.concat(g.rb)){if(ri!=null&&CH[c].roles[0]!==ROLES[ri])continue;bn[c]=(bn[c]||0)+1}
   }
-  const veil=S.spoiler&&!S.statsRevealed;
-  const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]||CH[+a[0]].ko.localeCompare(CH[+b[0]].ko,'ko'));
-  const P=top(pk),B=top(bn);
-  const ranks=list=>{let prev=null,r=0;return list.map(([c,v],i)=>{if(v!==prev){r=i+1;prev=v}return r})};
-  const pr=ranks(P),br=ranks(B);
+  const byKo=(a,b)=>CH[+a[0]].ko.localeCompare(CH[+b[0]].ko,'ko');
+  const ranks=(list,val)=>{let prev=null,r=0;return list.map((x,i)=>{const v=val(x);if(v!==prev){r=i+1;prev=v}return r})};
   const roleTag=c=>{const o=rl[c];if(!o)return '';const i=o.indexOf(Math.max(...o));return `<span class="rtag" style="color:${ROLE_COLORS[ROLES[i]]}">${ROLE_KO[ROLES[i]]}</span>`};
   const nm=c=>`<button type="button" class="cname" data-chsearch="${c}" title="밴픽 찾기에서 ${esc(CH[c].ko)} 경기 보기"><img src="${CH[c].icon}" alt="" width="32" height="32"><span>${esc(CH[c].ko)}</span></button>`;
-  const pmx=P.length?P[0][1]:1,bmx=B.length?B[0][1]:1;
-  const wcell=(c,v)=>{if(veil)return '<span class="muted">가림</span>';const w=wn[c]||0,wr=w/v*100;return `<b class="${v>=10&&wr>=60?'pos':v>=10&&wr<=40?'neg':''}">${Math.round(wr)}%</b><small class="muted wl">${w}승 ${v-w}패</small>`};
-  const pRows=P.slice(0,S.cn).map(([c,v],i)=>`<tr class="barrow" style="--w:${v/pmx*100}%"><td class="rk">${pr[i]}</td><td>${nm(+c)}</td><td>${roleTag(c)}</td><td class="num"><b>${v}</b></td><td class="num">${(v/n*100).toFixed(1)}%</td><td class="num">${wcell(c,v)}</td></tr>`).join('');
-  const bRows=B.slice(0,S.cn).map(([c,v],i)=>{const o=bs[c];return `<tr class="barrow ban" style="--w:${v/bmx*100}%"><td class="rk">${br[i]}</td><td>${nm(+c)}</td><td class="num"><b>${v}</b></td><td class="num">${(v/n*100).toFixed(1)}%</td><td class="split"><div class="spl"><i class="bl" style="width:${o.b/v*100}%"></i><i class="rd" style="width:${o.r/v*100}%"></i></div><small><span class="bl">${Math.round(o.b/v*100)}%</span> · <span class="rd">${Math.round(o.r/v*100)}%</span></small></td></tr>`}).join('');
-  const chip=(k,v,label,on)=>`<button class="chip ${on?'on':''}" type="button" data-${k}="${esc(v)}">${esc(label)}</button>`;
-  box.innerHTML=`<div class="page-h"><h1>챔피언 순위</h1><p class="muted">리그와 패치를 고르면 많이 뽑히고 많이 밴된 챔피언을 보여 줘요. 챔피언을 누르면 그 챔피언이 나온 경기를 찾아요.</p></div>
-    <section class="card story">
-      ${leagueBar(L.main,S.cl,'cl','전체')}
-      <div class="tools" style="margin-top:10px"><select class="sel" id="cl-more" aria-label="다른 리그"><option value="">다른 리그…</option>${L.rest.map(l=>`<option value="${esc(l)}" ${S.cl===l?'selected':''}>${esc(l)} (${L.cnt[l]}경기)</option>`).join('')}</select></div>
-      <div class="tools">${chip('cpt','all','전체 패치',S.cpt==='all')}${chip('cpt','last3','최근 3개 패치',S.cpt==='last3')}${chip('cpt','latest','최신 패치 '+last,S.cpt==='latest')}
-        <select class="sel" id="cpt-one" aria-label="패치 하나 고르기"><option value="">패치 고르기…</option>${plist.map(p=>`<option value="p:${esc(p)}" ${S.cpt==='p:'+p?'selected':''}>${esc(p)} (${pc[p]}경기)</option>`).join('')}</select></div>
-      <div class="tabs rtabs" role="tablist" style="margin-top:14px"><button role="tab" type="button" data-cr="all" aria-selected="${S.cr==='all'}">모든 라인</button>${ROLES.map((r,i)=>`<button role="tab" type="button" data-cr="${i}" aria-selected="${S.cr===String(i)}"><em class="dot" style="background:${ROLE_COLORS[r]}"></em>${ROLE_KO[r]}</button>`).join('')}</div>
-    </section>
-    <p class="muted" style="margin:0 0 10px;font-size:.85rem">${esc(S.cl==='all'?'전체 리그':lgLabel(S.cl))} · ${S.cpt==='all'?'전체 패치':S.cpt==='latest'?'패치 '+last:S.cpt==='last3'?'최근 3개 패치':'패치 '+esc(S.cpt.slice(2))} · <b style="color:var(--fg)">${n.toLocaleString('ko-KR')}경기</b>${ri!=null?` · ${ROLE_KO[ROLES[ri]]}`:''}</p>
-    ${n?`<div class="ctwo">
-      <section class="card ctab"><h2>많이 뽑힌 챔피언</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th>포지션</th><th class="num">픽</th><th class="num" title="전체 경기 중 이 챔피언이 나온 경기의 비율">픽률</th><th class="num">승률</th></tr></thead><tbody>${pRows}</tbody></table></section>
-      <section class="card ctab"><h2>많이 밴된 챔피언</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th class="num">밴</th><th class="num" title="전체 경기 중 이 챔피언이 밴된 경기의 비율">밴률</th><th title="블루 진영이 밴한 비율 · 레드 진영이 밴한 비율">밴한 진영</th></tr></thead><tbody>${bRows}</tbody></table></section>
-    </div>
-    ${Math.max(P.length,B.length)>S.cn?`<button class="more" type="button" data-cmore>더 보기</button>`:''}
-    <p class="rel">픽률과 밴률은 고른 경기 중 몇 %에서 나왔는지예요. 막대는 1위 대비 횟수예요. 포지션을 고르면 밴은 그 포지션을 주로 맡는 챔피언만 보여 줘요. ${veil?'승률은 결과 가림 중이라 가렸어요.':''}</p>`
-    :'<div class="card empty-state"><h2>조건에 맞는 경기가 없어요</h2></div>'}`;
+  const lgName=S.cl==='all'?'전체 리그':lgLabel(S.cl),ptName=S.cpt==='all'?'전체 패치':S.cpt==='latest'?'패치 '+last:S.cpt==='last3'?'최근 3개 패치':'패치 '+esc(S.cpt.slice(2));
+  // 리그: 원형 아이콘 한 줄 (OP.GG 방식)
+  const lgItem=(v,label,badge)=>`<button type="button" class="lgc ${S.cl===v?'on':''}" data-cl="${esc(v)}" aria-pressed="${S.cl===v}"><span class="lgc-i">${badge}</span><span class="lgc-n">${esc(label)}</span></button>`;
+  const lgRow=`<div class="lgrow">${lgItem('all','전체','<span class="lgc-all">ALL</span>')}${L.main.map(l=>lgItem(l,lgLabel(l),leagueBadge(l,34))).join('')}
+    <label class="lgc lgc-more ${L.rest.includes(S.cl)?'on':''}"><span class="lgc-i"><span class="lgc-all">+</span></span><select id="cl-more" aria-label="다른 리그"><option value="">다른 리그</option>${L.rest.map(l=>`<option value="${esc(l)}" ${S.cl===l?'selected':''}>${esc(l)} (${L.cnt[l]}경기)</option>`).join('')}</select></label></div>`;
+  // 포지션: 가로로 꽉 찬 탭 (OP.GG 방식)
+  const roleBar=`<div class="rolebar" role="tablist"><button role="tab" type="button" data-cr="all" aria-selected="${S.cr==='all'}">모든 라인</button>${ROLES.map((r,i)=>`<button role="tab" type="button" data-cr="${i}" aria-selected="${S.cr===String(i)}"><em class="dot" style="background:${ROLE_COLORS[r]}"></em>${ROLE_KO[r]}</button>`).join('')}</div>`;
+  // 표 위 제목 줄: 리그·패치·경기 수 + 패치 고르기 + 보기 전환
+  const patchSel=`<select class="sel" id="cpt-one" aria-label="패치"><option value="all" ${S.cpt==='all'?'selected':''}>전체 패치</option><option value="last3" ${S.cpt==='last3'?'selected':''}>최근 3개 패치</option><option value="latest" ${S.cpt==='latest'?'selected':''}>최신 패치 ${esc(last)}</option>${plist.map(p=>`<option value="p:${esc(p)}" ${S.cpt==='p:'+p?'selected':''}>${esc(p)} (${pc[p]}경기)</option>`).join('')}</select>`;
+  const view=S.cview||'rank';
+  const viewTabs=`<div class="tabs" role="tablist"><button role="tab" type="button" data-cview="rank" aria-selected="${view==='rank'}">픽·밴 순위</button><button role="tab" type="button" data-cview="win" aria-selected="${view==='win'}">승률</button></div>`;
+  const head=`<div class="chead"><div class="chead-t"><b>${esc(lgName)}</b><span>${ptName} · ${n.toLocaleString('ko-KR')}경기${ri!=null?` · ${ROLE_KO[ROLES[ri]]}`:''}</span></div>${patchSel}${viewTabs}</div>`;
+  let body='';
+  if(!n)body='<div class="card empty-state"><h2>조건에 맞는 경기가 없어요</h2></div>';
+  else if(view==='rank'){
+    // 픽 순위·밴 순위: 그래프 없이 순위만
+    const P=Object.entries(pk).sort((a,b)=>b[1]-a[1]||byKo(a,b)),B=Object.entries(bn).sort((a,b)=>b[1]-a[1]||byKo(a,b));
+    const pr=ranks(P,x=>x[1]),br=ranks(B,x=>x[1]);
+    const pRows=P.slice(0,S.cn).map(([c,v],i)=>`<tr><td class="rk">${pr[i]}</td><td>${nm(+c)}</td><td>${roleTag(c)}</td><td class="num"><b>${v}</b></td><td class="num">${(v/n*100).toFixed(1)}%</td></tr>`).join('');
+    const bRows=B.slice(0,S.cn).map(([c,v],i)=>`<tr><td class="rk">${br[i]}</td><td>${nm(+c)}</td><td class="num"><b>${v}</b></td><td class="num">${(v/n*100).toFixed(1)}%</td></tr>`).join('');
+    body=`<div class="ctwo">
+      <section class="card ctab"><h2>픽 순위</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th>포지션</th><th class="num">픽</th><th class="num" title="고른 경기 중 이 챔피언이 나온 경기의 비율">픽률</th></tr></thead><tbody>${pRows}</tbody></table></section>
+      <section class="card ctab"><h2>밴 순위</h2><table class="ptable"><thead><tr><th>#</th><th>챔피언</th><th class="num">밴</th><th class="num" title="고른 경기 중 이 챔피언이 밴된 경기의 비율">밴률</th></tr></thead><tbody>${bRows}</tbody></table></section></div>
+      ${Math.max(P.length,B.length)>S.cn?`<button class="more" type="button" data-cmore>더 보기</button>`:''}
+      <p class="rel">픽률·밴률: 고른 경기 중 몇 %에서 나왔는지. 포지션을 고르면 밴은 그 포지션을 주로 맡는 챔피언만 셉니다.</p>`;
+  }else{
+    // 승률: 0~100% 막대, 50% 기준선. 픽이 적은 챔피언은 뺀다
+    const minN=Math.max(10,Math.round(n*0.01));
+    const W=Object.entries(pk).filter(([,v])=>v>=minN).map(([c,v])=>[c,v,(wn[c]||0)/v]).sort((a,b)=>b[2]-a[2]||b[1]-a[1]);
+    const wr=ranks(W,x=>Math.round(x[2]*1000));
+    const rows=W.slice(0,S.cn).map(([c,v,r],i)=>`<div class="wr-row"><span class="rk">${wr[i]}</span><span>${nm(+c)}</span><span>${roleTag(c)}</span>
+      <div class="wr-bar"><i class="${r>=.5?'up':'dn'}" style="width:${(r*100).toFixed(1)}%"></i><em></em></div>
+      <span class="wr-v"><b>${(r*100).toFixed(1)}%</b><small>${wn[c]||0}승 ${v-(wn[c]||0)}패</small></span></div>`).join('');
+    body=`<section class="card ctab"><h2>승률 <span class="muted" style="font-weight:500;font-size:.8rem">픽 ${minN}회 이상</span></h2>
+      <div class="wr-head"><span></span><span></span><span></span><div class="wr-ax"><small>0%</small><small>50%</small><small>100%</small></div><span></span></div>${rows||'<p class="muted">조건에 맞는 챔피언이 없어요</p>'}</section>
+      ${W.length>S.cn?`<button class="more" type="button" data-cmore>더 보기</button>`:''}
+      <p class="rel">막대는 0~100% 기준, 세로선은 50%. 픽이 ${minN}회(고른 경기의 1%, 최소 10회)보다 적은 챔피언은 뺐어요.</p>`;
+  }
+  box.innerHTML=`<div class="page-h"><h1>챔피언 순위</h1></div>
+    <section class="card cfil">${lgRow}${roleBar}</section>${head}${body}`;
 }
 
 /* ---------- 팀 페이지 대시보드 (dpm.lol을 참고한 배치): 요약 카드, 최근 흐름, 리그 비교, 챔피언 표 ---------- */
@@ -1322,6 +1338,7 @@ document.addEventListener('click',e=>{
   const cr=t.closest('[data-cr]');if(cr){S.cr=cr.dataset.cr;S.cn=20;renderChamps();return}
   const tt=t.closest('[data-ttab]');if(tt){S.ttab=tt.dataset.ttab;S.tMore=12;if(!$('#view-team').hidden)renderTeam(S.team);else renderTeams();return}
   const tbk=t.closest('[data-tbk]');if(tbk){S.tbk=tbk.dataset.tbk;if(!$('#view-team').hidden)renderTeam(S.team);else renderTeams();return}
+  const cv=t.closest('[data-cview]');if(cv){S.cview=cv.dataset.cview;S.cn=20;renderChamps();return}
   if(t.closest('[data-cmore]')){S.cn+=20;renderChamps();return}
   const cs=t.closest('[data-chsearch]');if(cs){const c=CH[+cs.dataset.chsearch],role=S.cr!=='all'?ROLES[+S.cr]:(c.roles[0]||'mid');
     setBoard({blue:{[role]:c.en}});S.leagues.clear();if(S.cl!=='all'&&LEAGUES.includes(S.cl))S.leagues.add(S.cl);S.shown=12;location.hash='search';update();window.scrollTo({top:0});return}
@@ -1432,6 +1449,6 @@ Promise.all([fetch('champs.json').then(r=>r.json()),fetch('games.json').then(r=>
   PATCHES=[...new Set(G.map(x=>x.p))].sort((a,b)=>{const A=pKey(a),B=pKey(b);return A[0]-B[0]||A[1]-B[1]});
   LEAGUES=[...new Set(G.map(x=>x.lg))].sort();
   if(!META.demo){$('#demo-pill').hidden=true;$('#foot').textContent='챔피언 이미지는 Riot Games Data Dragon을, 경기 데이터는 Oracle\'s Elixir(Tim Sevenhuysen)의 2026 파일을 사용했어요. 개인 작업실이에요. 링크를 공유하지 마세요.'}
-  S.spoiler=store.get('df-spoiler')==='1';syncSpoiler();
+  S.spoiler=false;syncSpoiler();   // 결과 가리기는 작업실에서 쓰지 않는다
   renderColumns();route();update();
 }).catch(err=>{console.error(err);$('#view-teams').hidden=false;$('#teams-box').innerHTML='<div class="card empty-state"><h2>데이터를 불러오지 못했어요</h2><p class="muted" style="margin:0">잠시 후 다시 열어 주세요.</p></div>';$('#results').innerHTML='<div class="card empty-state"><h2>데이터를 불러오지 못했어요</h2><p class="muted" style="margin:0">잠시 후 다시 열어 주세요.</p></div>'});
