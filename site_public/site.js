@@ -22,8 +22,8 @@ function row(p){
 function list(kind){
   const ps=POSTS.filter(p=>p.kind===kind);
   const intro=kind==='note'
-    ?'<div class="intro"><h1>분석 노트</h1><p>가설을 세우고 데이터로 확인한 기록이에요. 확인하지 못한 결과와 고친 계산도 남겨요.</p></div>'
-    :'<div class="intro"><h1>칼럼</h1><p>경기를 보고 쓴 분석 글이에요. 글 안의 상자는 실제 경기 기록에서 계산한 근거예요.</p></div>';
+    ?'<div class="intro"><h1>분석 노트</h1><p>가설과 데이터 확인 기록. 확인하지 못한 결과와 정정도 포함.</p></div>'
+    :'<div class="intro"><h1>칼럼</h1><p>LoL e스포츠 경기 분석.</p></div>';
   if(!ps.length)return intro+'<div class="card empty-state"><h2>아직 글이 없어요</h2></div>';
   return `${intro}${feature(ps[0])}${ps.length>1?`<h2 class="lh">지난 글</h2><div class="plist2">${ps.slice(1).map(row).join('')}</div>`:''}`;
 }

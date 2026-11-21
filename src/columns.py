@@ -22,12 +22,12 @@
     @game nth=40            (또는 id=게임ID)
     @team name="Gen.G"      (팀 지표를 리그 안 순위·평균과 비교)
     @form team="Gen.G" n=10 until=2026-11-14   (최근 n경기 15분 골드 차이와 승패)
-    @flow id=게임ID team="Gen.G"               (경기 하나의 시간대별 흐름. team은 누구 기준으로 볼지)
+    @flow team="Gen.G" last=1                  (그 팀의 최근 경기 흐름. id=게임ID로 경기를 지정할 수도 있다)
 
 값에 빈칸이 있으면 큰따옴표로 감싼다: name="Hanwha Life Esports".
 
 `@search` 인자: `blue.<포지션>=챔피언(영문)`, `red.<포지션>=...`, `sets=all|early|late`,
-`patch=all|latest|last3`, `leagues=LCK,LPL`, `pos=any|exact`, `games=N`(경기 목록을 N개까지 함께 보여 줌, 기본 0).
+`patch=all|latest|last3`, `leagues=LCK,LPL`, `pos=any|exact`, `team="Gen.G"`(그 팀이 고른 경기만), `games=N`(경기 목록을 N개까지 함께 보여 줌, 기본 0).
 `@series` 인자: `pick=longest|latest`, `set=N`(몇 세트 후 상태를 보여 줄지).
 """
 from __future__ import annotations
@@ -88,6 +88,8 @@ def _check_embed(kind: str, args: dict) -> dict:
                 if role not in POSITIONS:
                     raise ColumnError(f"알 수 없는 포지션 '{role}' (top/jng/mid/bot/sup 중 하나)")
                 board[side][role] = v
+            elif k == "team":
+                opts["team"] = v
             elif k == "games":
                 n = _int("games", v)
                 if not 0 <= n <= 10:
@@ -131,8 +133,15 @@ def _check_embed(kind: str, args: dict) -> dict:
             out["until"] = args["until"]
         return out
     if kind == "flow":
-        _only(kind, args, {"nth", "id", "team"})
-        out = _game_ref(kind, args)
+        _only(kind, args, {"nth", "id", "team", "last"})
+        if "id" in args or "nth" in args:
+            out = _game_ref(kind, args)
+        elif args.get("team"):
+            out = {"last": _int("last", args.get("last", "1"))}   # 그 팀의 최근 N번째 경기 (1 = 가장 최근)
+            if out["last"] < 1:
+                raise ColumnError("@flow last는 1 이상이어야 합니다")
+        else:
+            raise ColumnError('@flow에는 id=게임ID, nth=N, team="팀" 중 하나가 필요합니다')
         if args.get("team"):
             out["team"] = args["team"]
         return out

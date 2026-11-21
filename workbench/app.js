@@ -790,7 +790,7 @@ function teamMetrics(t){
     cspm:avg(T('cspm')),csd15:avg(T('csd15')),ft:ft.length?ft.filter(x=>x.g.ft===x.code).length/ft.length*100:null,
     dpm:avg(T('dpm')),fb:avg(T('fb'))*100,k:avg(T('k')),d:avg(T('d')),kd:d?k/d:null,
     plt:avg(T('plt')),drg:avg(T('drg')),drgS:share('drg'),grub:avg(T('grub')),her:avg(T('her')),bar:avg(T('bar')),barS:share('bar'),
-    vspm:avg(T('vspm')),wpm:avg(T('wpm')),wcpm:avg(T('wcpm'))};
+    vspm:avg(T('vspm')),wpm:avg(T('wpm')),wcpm:avg(T('wcpm')),xpd15:avg(T('xpd15'))};
 }
 const f0=v=>Math.round(v).toLocaleString('ko-KR'),f1=v=>v.toFixed(1),f2=v=>v.toFixed(2),fp=v=>Math.round(v)+'%',fs1=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1);
 /* [묶음, 키, 이름, 표시, 높을수록 좋은가(1)/낮을수록(-1), 결과를 알려 주는가] */
@@ -1053,120 +1053,151 @@ function teamBody(t,mine){
 
 /* ---------- 칼럼 상자: @team(팀 지표), @form(최근 흐름), @flow(경기 하나의 흐름) ---------- */
 const findTeam=name=>TEAMIDX[name]!=null?TEAMS[TEAMIDX[name]]:null;
-/* ---------- 근거 상자 공통 틀: 결론 한 문장(제목) → 핵심 숫자 → 근거 → 출처 한 줄 ---------- */
+/* ---------- 칼럼 데이터 상자: 제목 → 숫자·그래프 → 출처 한 줄. 꾸미는 문장은 넣지 않는다 ---------- */
 const seasonOf=()=>G.length?G[G.length-1].d.slice(0,4)+' 시즌':'';
-const srcOf=()=>META.demo?'데모 데이터(실제 경기가 아니에요)':"데이터: Oracle's Elixir";
-function wbox({tags,title,body,foot}){
-  return `<section class="wbox"><div class="wk"><span class="b">근거</span>${(tags||[]).map(t=>`<span class="wtag">${t}</span>`).join('')}</div>
-    ${title?`<h4 class="wt">${title}</h4>`:''}${body}<p class="wsrc">${foot?foot+' · ':''}${esc(seasonOf())} · ${esc(srcOf())}</p></section>`;
+const srcOf=()=>META.demo?'데모 데이터':"Oracle's Elixir";
+function dbox(title,sub,body,note){
+  return `<figure class="dbox"><figcaption><b>${title}</b>${sub?`<span>${sub}</span>`:''}</figcaption>${body}<p class="dsrc">${note?note+' · ':''}${esc(seasonOf())} · ${esc(srcOf())}</p></figure>`;
 }
-/* 첫 하나만 보이고 나머지는 접어 둔다 (공개 사이트에서도 스크립트 없이 열린다) */
-function foldList(items,label){
-  if(items.length<=1)return items.join('');
-  return `${items[0]}<details class="wmore"><summary>${label} ${items.length-1}개 더 보기</summary>${items.slice(1).join('')}</details>`;
-}
-const wErr=msg=>`<section class="wbox"><div class="wk"><span class="b">근거</span></div><p class="muted" style="margin:0">${esc(msg)}</p></section>`;
-const wLoading='<section class="wbox"><p class="muted" style="margin:0">지표를 불러오는 중이에요…</p></section>';
+const dstats=items=>`<div class="dstats">${items.map(([k,v])=>`<div><small>${k}</small><b>${v}</b></div>`).join('')}</div>`;
+const wErr=msg=>`<figure class="dbox"><p class="muted" style="margin:0">${esc(msg)}</p></figure>`;
+const wLoading='<figure class="dbox"><p class="muted" style="margin:0">지표를 불러오는 중…</p></figure>';
+const gdk=v=>v==null?'-':(v>0?'+':v<0?'−':'')+(Math.abs(v)/1000).toFixed(1)+'k';
 
+/* @search: 고른 챔피언(과 팀)이 나온 경기의 수, 승률, 95% 범위, 15분 골드 차이 */
 function searchWidget(b,ref){
   const miss=[];
   for(const side of['blue','red'])for(const en of Object.values(b.board[side]||{}))if(CHIDX[en]==null)miss.push(en);
-  if(miss.length)return wErr(`챔피언을 찾을 수 없어요: ${miss.join(', ')}`);
+  if(miss.length)return wErr(`챔피언을 찾을 수 없음: ${miss.join(', ')}`);
+  if(b.team&&!findTeam(b.team))return wErr(`팀을 찾을 수 없음: ${b.team}`);
   const st={blue:toArr(b.board.blue),red:toArr(b.board.red),patch:b.patch||'all',sets:b.sets||'all',pos:b.pos||'any',leagues:new Set(b.leagues||[])};
   const res=withState(st,()=>{const sel=selection();return{sel,...run(sel)}});
-  const total=res.sel.length,list=res.list.filter(r=>r.matched===total),lab=searchLabel(b);
-  const part=side=>Object.entries(b.board[side]||{}).map(([r,en])=>`${ROLE_KO[r]} ${esc(CHIDX[en]!=null?CH[CHIDX[en]].ko:en)}`).join(' + ');
-  const tags=[esc(lab.q),...lab.f.map(esc)];
-  if(!list.length)return wbox({tags,title:'조건에 맞는 경기가 없어요',body:'',foot:''});
-  const n=list.length,wins=list.filter(r=>r.win).length,pct=Math.round(wins/n*100);
+  const total=res.sel.length,lab=searchLabel(b);
+  let list=res.list.filter(r=>r.matched===total);
+  if(b.team)list=list.filter(r=>(r.pGame==='b'?r.g.bt:r.g.rt)===b.team);
+  const title=b.team?`${esc(tn(b.team))} · ${lab.q}`:lab.q,sub=lab.f.join(' · ');
+  if(!list.length)return dbox(title,sub,'<p class="muted" style="margin:0">해당 경기 없음</p>','');
+  const n=list.length,wins=list.filter(r=>r.win).length,ph=wins/n;
   const gds=list.map(r=>r.gd).filter(v=>v!=null),gd=gds.length?gds.reduce((a,v)=>a+v,0)/gds.length:null;
-  const veil=S.spoiler&&!S.statsRevealed,who=res.both?part(res.persp):lab.q;
-  const title=veil?`${who}: ${n.toLocaleString('ko-KR')}경기를 찾았어요`:n<5?`${who}${eul(who)} 고른 경기는 ${n}경기뿐이에요 (${wins}승 ${n-wins}패)`:`${who}${eul(who)} 고른 팀이 ${n.toLocaleString('ko-KR')}경기에서 ${pct}% 이겼어요`;
-  const nums=veil
-    ?`<div class="wstats one"><div>결과 가림 중이라 승률과 골드 차이는 가렸어요. <button class="btn" type="button" data-stats>통계 보기</button></div></div>`
-    :`<div class="wbig"><div class="wmain">${n<5?`<b>${wins}승 ${n-wins}패</b><span>전적</span>`:`<b>${pct}%</b><span>승률 · ${wins}승 ${n-wins}패</span>`}</div><div class="wside"><div><b>${n.toLocaleString('ko-KR')}</b><span>찾은 경기</span></div><div><b>${fmtGd(gd)}</b><span>15분 평균 골드 차이</span></div></div></div>`;
-  // 95% 범위(윌슨 구간): 이 승률이 반반(50%)과 구별되는지 독자가 바로 알 수 있게
-  const z=1.96,ph=wins/n,den=1+z*z/n,mid=(ph+z*z/(2*n))/den,half=z*Math.sqrt(ph*(1-ph)/n+z*z/(4*n*n))/den;
-  const lo=Math.max(0,Math.round((mid-half)*100)),hi=Math.min(100,Math.round((mid+half)*100)),even=lo<=50&&hi>=50;
-  const range=veil||n<5?'':`<p class="wci"><b>95% 범위 ${lo}~${hi}%</b> · ${even?'50%와 구별되지 않아요. 우연으로도 나올 수 있는 차이예요':`50%를 ${ph>.5?'넘는':'밑도는'} 차이예요`}</p>`;
-  const small=n<10?'<p style="margin:0 0 10px"><span class="tag warn">표본이 적어요. 참고용으로만 봐 주세요</span></p>':'';
+  const z=1.96,den=1+z*z/n,mid=(ph+z*z/(2*n))/den,half=z*Math.sqrt(ph*(1-ph)/n+z*z/(4*n*n))/den;   // 윌슨 95% 구간
+  const veil=S.spoiler&&!S.statsRevealed;
+  const items=veil?[['경기',n]]:[['경기',n.toLocaleString('ko-KR')],['전적',`${wins}승 ${n-wins}패`],['승률',n<5?'-':Math.round(ph*100)+'%'],
+    ['95% 범위',n<5?'-':`${Math.max(0,Math.round((mid-half)*100))}–${Math.min(100,Math.round((mid+half)*100))}%`],['15분 골드 차이',fmtGd(gd)]];
   const lines=b.games?`<ul class="wlist">${list.slice(0,b.games).map(r=>{const g=r.g,me=r.pGame==='b'?g.bt:g.rt,op=r.pGame==='b'?g.rt:g.bt;
     return `<li><span>${esc(g.lg)} · ${fmtDate(g.d)} · ${g.s}세트</span><b>${esc(tn(me))}</b> vs ${esc(tn(op))}${veil?'':` <em class="${r.win?'pos':'neg'}">${r.win?'승':'패'}</em>`}</li>`}).join('')}</ul>`:'';
-  return wbox({tags,title,body:`${nums}${range}${small}${lines}
-    <div class="dact" style="margin-top:12px"><button class="btn" type="button" data-wsearch="${ref}">검색기에서 열기 (${n.toLocaleString('ko-KR')}경기 전체)</button></div>`,
-    foot:`${res.both?`${who} 쪽 기준`:'고른 챔피언을 쓴 팀 기준'}, 포지션이 달라도 같은 챔피언이면 셌어요`});
+  return dbox(title,sub,`${dstats(items)}${lines}<div class="dact" style="margin-top:12px"><button class="btn" type="button" data-wsearch="${ref}">검색기에서 열기</button></div>`,
+    b.team?'':'고른 챔피언을 쓴 팀 기준, 포지션 무관');
 }
+/* @series: 세트별 소진 챔피언과 포지션별 인기 픽 잔여 */
 function seriesWidget(b){
   const s=pickSeries(b);if(!s)return '';
   const n=Math.min(Math.max(b.set==null?s.k:b.set,0),s.k),con=consumedAfter(s,n),pop=popBlockHtml(con);
-  return wbox({tags:[esc(s.league),fmtDate(s.date),`${esc(tn(s.A))} vs ${esc(tn(s.B))}`,`${n}세트 후`],
-    title:`${n}세트까지 챔피언 ${con.size}명이 소진됐고, 인기 상위 ${pop.total}명 중 ${pop.used}명이 이미 쓰였어요`,
-    body:`<div class="tpanels">${teamPanelHtml(s,s.A,n)}${teamPanelHtml(s,s.B,n)}</div>
-    <p class="wci" style="margin-top:12px">포지션별 인기 상위 ${pop.per}명 중 남은 챔피언: ${ROLES.map(r=>`${ROLE_KO[r]} <b>${POPTOP[r].filter(id=>!con.has(id)).length}</b>`).join(' · ')}</p>
-    <div class="dact" style="margin-top:12px"><button class="btn" type="button" data-wseries="${s.id}:${n}">시리즈 복기 열기</button></div>`,
-    foot:'인기 순위는 시즌 전체 포지션별 픽 수 기준'});
+  const left=ROLES.map(r=>[ROLE_KO[r],`${POPTOP[r].filter(id=>!con.has(id)).length}/${pop.per}`]);
+  return dbox(`${esc(tn(s.A))} vs ${esc(tn(s.B))} · ${n}세트 후`,`${esc(s.league)} · ${fmtDate(s.date)}`,
+    `${dstats([['소진 챔피언',con.size],['인기 상위 소진',`${pop.used}/${pop.total}`]])}<div class="tpanels">${teamPanelHtml(s,s.A,n)}${teamPanelHtml(s,s.B,n)}</div>
+     <p class="dlab">포지션별 인기 상위 ${pop.per}명 중 남은 수</p>${dstats(left)}
+     <div class="dact" style="margin-top:12px"><button class="btn" type="button" data-wseries="${s.id}:${n}">시리즈 복기 열기</button></div>`,
+    '인기 순위: 시즌 포지션별 픽 수');
 }
 function gameWidget(b){
   const g=pickGame(b);if(!g)return '';
-  return wbox({tags:[esc(g.lg),fmtDate(g.d),`${g.s}세트`],title:`${esc(tn(g.bt))} vs ${esc(tn(g.rt))}`,body:`<div class="games one">${gameStripHtml(g)}</div>`,foot:''});
+  return dbox(`${esc(tn(g.bt))} vs ${esc(tn(g.rt))}`,`${esc(g.lg)} · ${fmtDate(g.d)} · ${g.s}세트`,`<div class="games one">${gameStripHtml(g)}</div>`,'');
+}
+/* @team: 레이더(팀 vs 리그 평균) + 지표별로 리그 팀 전체를 점으로 찍은 줄 */
+const PROC=[['gd15','15분 골드',fmtGd,1],['xpd15','15분 경험치',v=>(v>0?'+':v<0?'−':'')+Math.abs(Math.round(v)),1],['csd15','15분 CS',fs1,1],['fb','첫 킬',fp,1],
+  ['ft','첫 포탑',fp,1],['plt','포탑 방패',f1,1],['grub','공허 유충',f1,1],['her','전령',f2,1],['vspm','분당 시야',f2,1],['wcpm','분당 와드 제거',f2,1]];
+const RESL=[['gpm','분당 골드',f0,1],['cspm','분당 CS',f1,1],['dpm','분당 피해량',f0,1],['k','경기당 킬',f1,1],['d','경기당 데스',f1,-1],
+  ['drgS','용 획득 비율',fp,1],['barS','바론 획득 비율',fp,1],['ahead','15분 우위 시 승률',fp,1]];
+const RAX=['gd15','xpd15','csd15','fb','ft','plt','grub','vspm'];
+function leagueVals(lg,key){return leagueMetrics(lg).map(x=>({t:x.t,v:x.m[key]})).filter(x=>x.v!=null)}
+function radarCmp(t,m){
+  const lg=t.league,defs=RAX.map(k=>PROC.find(x=>x[0]===k)),N=defs.length,W=340,H=290,cx=170,cy=145,R=96;
+  const norm=(k,dir,v)=>{const vs=leagueVals(lg,k).map(x=>x.v),lo=Math.min(...vs),hi=Math.max(...vs);if(v==null||hi===lo)return .5;const r=(v-lo)/(hi-lo);return .08+.92*(dir>0?r:1-r)};
+  const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/N;return[cx+Math.cos(a)*R*r,cy+Math.sin(a)*R*r]};
+  const poly=rs=>rs.map((r,i)=>pt(i,r).map(v=>v.toFixed(1)).join(',')).join(' ');
+  const me=defs.map(([k,,,d])=>norm(k,d,m[k])),av=defs.map(([k,,,d])=>norm(k,d,avg(leagueVals(lg,k).map(x=>x.v))));
+  const rings=[.25,.5,.75,1].map(r=>`<polygon points="${poly(defs.map(()=>r))}" class="rg"/>`).join('');
+  const spokes=defs.map((_,i)=>{const[x,y]=pt(i,1);return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="rg"/>`}).join('');
+  const labels=defs.map(([,l],i)=>{const[x,y]=pt(i,1.18),c=Math.cos(-Math.PI/2+i*2*Math.PI/N);return `<text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="${Math.abs(c)<.2?'middle':c>0?'start':'end'}">${l}</text>`}).join('');
+  return `<div class="rwrap"><svg class="radar" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(tn(t.name))}와 ${esc(lg)} 평균 비교">${rings}${spokes}<polygon points="${poly(av)}" class="ra"/><polygon points="${poly(me)}" class="rv"/>${labels}</svg>
+    <div class="rleg"><span><i class="me"></i>${esc(tn(t.name))}</span><span><i class="av"></i>${esc(lg)} 평균</span><span class="muted">축마다 리그 최저–최고 기준</span></div></div>`;
+}
+function stripRows(t,m,defs){
+  const lg=t.league;
+  return defs.filter(([k])=>m[k]!=null).map(([k,label,fmt,dir])=>{
+    const vs=leagueVals(lg,k),lo=Math.min(...vs.map(x=>x.v)),hi=Math.max(...vs.map(x=>x.v)),a=avg(vs.map(x=>x.v));
+    const pos=v=>hi===lo?50:((dir>0?v-lo:hi-v)/(hi-lo))*100,rk=rankOf(lg,k,dir,m[k]);
+    const dots=vs.filter(x=>x.t!==t).map(x=>`<i style="left:${pos(x.v).toFixed(1)}%" title="${esc(tn(x.t.name))} ${fmt(x.v)}"></i>`).join('');
+    return `<tr><td>${label}</td><td class="num"><b>${fmt(m[k])}</b></td><td class="num muted">${fmt(a)}</td>
+      <td class="stc"><div class="strip">${dots}<em style="left:${pos(a).toFixed(1)}%"></em><b style="left:${pos(m[k]).toFixed(1)}%"></b></div></td><td class="num">${rk?rk.r+'위':''}</td></tr>`;
+  }).join('');
 }
 function teamWidget(b){
-  const t=findTeam(b.name);if(!t)return wErr(`팀을 찾을 수 없어요: ${b.name}`);
+  const t=findTeam(b.name);if(!t)return wErr(`팀을 찾을 수 없음: ${b.name}`);
   if(ST===null){loadStats();return wLoading}
-  const m=ST?teamMetrics(t):null;if(!m)return wErr(`${b.name}: 지표가 없어요`);
-  const lg=t.league,veil=S.spoiler&&!S.statsRevealed;
-  const ranked=MDEF.filter(x=>m[x[1]]!=null&&!(x[5]&&veil)).map(x=>{const rk=rankOf(lg,x[1],x[4],m[x[1]]);return{x,rk}}).filter(o=>o.rk);
-  const n=ranked.length?ranked[0].rk.n:0,third=Math.ceil(n/3);
-  const top=ranked.filter(o=>o.rk.r<=third).sort((a,b2)=>a.rk.r-b2.rk.r),low=ranked.filter(o=>o.rk.r>n-third).sort((a,b2)=>b2.rk.r-a.rk.r);
-  const chip=(o,cls)=>`<span class="mchip ${cls}"><b>${o.rk.r}위</b> ${o.x[2]} <em>${o.x[3](m[o.x[1]])}</em></span>`;
-  return wbox({tags:[`${emblem(t.name,18)} ${esc(tn(t.name))}`,`${esc(lg)} ${n}팀과 비교`],
-    title:`${esc(tn(t.name))}${eun(tn(t.name))} 지표 ${ranked.length}개 중 ${top.length}개가 ${esc(lg)} 상위권, ${low.length}개가 하위권이에요`,
-    body:`<div class="tw">${radarSvg(t,m)}<div class="twc"><h5>앞서는 지표</h5><div class="mchips">${top.slice(0,4).map(o=>chip(o,'good')).join('')||'<span class="muted">없어요</span>'}</div>
-      <h5>뒤처지는 지표</h5><div class="mchips">${low.slice(0,3).map(o=>chip(o,'bad')).join('')||'<span class="muted">없어요</span>'}</div></div></div>
-      <details class="wmore"><summary>지표 ${ranked.length}개 모두 보기</summary>${teamStatsInner(t)}</details>`,
-    foot:`${m.n}경기 기준, 순위는 ${esc(lg)}에서 8경기 이상 치른 ${n}팀 중`});
+  const m=ST?teamMetrics(t):null;if(!m)return wErr(`${b.name}: 지표 없음`);
+  const veil=S.spoiler&&!S.statsRevealed,nT=leagueMetrics(t.league).length;
+  const head=`<thead><tr><th>지표</th><th class="num">${esc(tn(t.name))}</th><th class="num">평균</th><th class="stc">${esc(t.league)} ${nT}팀 (오른쪽이 앞섬)</th><th class="num">순위</th></tr></thead>`;
+  return dbox(`${esc(tn(t.name))} 팀 지표`,`${esc(t.league)} ${nT}팀 비교 · ${m.n}경기`,
+    `${radarCmp(t,m)}
+     <p class="dlab">과정 지표 <span>경기 흐름이 정해지기 전의 모습</span></p><div class="tscroll"><table class="ptable stable">${head}<tbody>${stripRows(t,m,PROC)}</tbody></table></div>
+     <p class="dlab">결과 지표 <span>승패를 크게 반영하는 숫자</span></p><div class="tscroll"><table class="ptable stable">${head}<tbody>${stripRows(t,m,veil?RESL.filter(x=>x[0]!=='ahead'):RESL)}</tbody></table></div>`,
+    `점: ${esc(t.league)}에서 8경기 이상 치른 팀 · 세로선: 평균`);
 }
+/* @form: 최근 n경기를 한 줄씩, 15분 골드 차이 가로 막대 */
 function formWidget(b){
-  const t=findTeam(b.team);if(!t)return wErr(`팀을 찾을 수 없어요: ${b.team}`);
-  const list=t.games.filter(x=>!b.until||x.g.d<=b.until).slice(-b.n);
-  if(!list.length)return wErr('조건에 맞는 경기가 없어요');
-  const w=list.filter(x=>x.g.w===x.code).length,ahead=list.filter(x=>x.g.gd!=null&&(x.code==='b'?x.g.gd:-x.g.gd)>0).length;
-  const veil=S.spoiler&&!S.statsRevealed;
-  return wbox({tags:[`${emblem(t.name,18)} ${esc(tn(t.name))}`,`${fmtDate(list[0].g.d)} ~ ${fmtDate(list[list.length-1].g.d)}`],
-    title:veil?`${esc(tn(t.name))}의 최근 ${list.length}경기`:`${esc(tn(t.name))}${eun(tn(t.name))} 최근 ${list.length}경기에서 ${w}승 ${list.length-w}패, 15분에 앞선 경기는 ${ahead}번이에요`,
-    body:veil?'<p class="muted">결과 가림 중이라 가렸어요.</p>':formInner(list),foot:'막대는 15분 골드 차이, 아래는 상대 팀과 승패'});
+  const t=findTeam(b.team);if(!t)return wErr(`팀을 찾을 수 없음: ${b.team}`);
+  const list=t.games.filter(x=>!b.until||x.g.d<=b.until).slice(-b.n).reverse();
+  if(!list.length)return wErr('해당 경기 없음');
+  const veil=S.spoiler&&!S.statsRevealed,w=list.filter(x=>x.g.w===x.code).length;
+  const gdOf=x=>x.g.gd==null?null:(x.code==='b'?x.g.gd:-x.g.gd);
+  const mx=Math.max(3000,...list.map(x=>Math.abs(gdOf(x)||0))),cap=Math.ceil(mx/1000)*1000;
+  const rows=list.map(x=>{const g=x.g,v=gdOf(x),o=x.code==='b'?g.rt:g.bt,win=g.w===x.code,wd=v==null?0:Math.abs(v)/cap*50;
+    return `<div class="frow"><span class="fdt">${fmtDate(g.d).replace('월 ','/').replace('일','')}</span><span class="fop">${emblem(o,18)}<span>${esc(teamStyle(o).short)}</span></span>
+      <div class="fbar3">${veil||v==null?'':`<i class="${v>=0?'up':'dn'}" style="width:${wd.toFixed(1)}%;${v>=0?'left:50%':'right:50%'}"></i>`}</div>
+      <span class="fval">${veil?'':gdk(v)}</span><span class="fres ${veil?'':win?'w':'l'}">${veil?'':win?'승':'패'}</span></div>`}).join('');
+  const axis=`<div class="frow fax"><span></span><span></span><div class="fbar3 ax"><small style="left:0">−${cap/1000}k</small><small style="left:50%">0</small><small style="left:100%">+${cap/1000}k</small></div><span></span><span></span></div>`;
+  return dbox(`${esc(tn(t.name))} 최근 ${list.length}경기${veil?'':` · ${w}승 ${list.length-w}패`}`,`${fmtDate(list[list.length-1].g.d)} – ${fmtDate(list[0].g.d)} · 막대: 15분 골드 차이`,
+    `<div class="flist">${rows}${axis}</div>`,'');
 }
-
-/* 경기 하나의 시간대별 흐름: 골드 곡선, 10·15분 차이, 먼저 가져간 오브젝트, 최종 수치 */
+/* @flow: 경기 하나. 지정한 팀 기준의 시간대별 골드 차이(축 있음), 10·15분 차이, 먼저 가져간 쪽, 최종 수치 */
+function niceStep(mx){for(const s of[500,1000,2000,2500,5000,10000])if(mx/s<=3)return s;return 10000}
 function flowWidget(b){
-  const g=pickGame(b);if(!g)return wErr('경기를 찾을 수 없어요');
+  let g;
+  if(b.id!=null||b.nth!=null)g=pickGame(b);
+  else{const t=findTeam(b.team);if(!t)return wErr(`팀을 찾을 수 없음: ${b.team}`);const x=t.games[t.games.length-b.last];g=x&&x.g}
+  if(!g)return wErr('경기를 찾을 수 없음');
+  if(b.team&&g.bt!==b.team&&g.rt!==b.team)return wErr(`${b.team}가 뛴 경기가 아님 (${g.bt} vs ${g.rt})`);
   if(ST===null){loadStats();return wLoading}
   const code=b.team&&g.rt===b.team?'r':'b',o=opp(code),me=code==='b'?g.bt:g.rt,them=code==='b'?g.rt:g.bt,win=g.w===code,sg=code==='b'?1:-1;
   const T=k=>tSt(g,code,k),O=k=>tSt(g,o,k);
-  const pts=[[10,g.g10],[15,g.gd],[20,g.g20],[25,g.g25]].filter(x=>x[1]!=null).map(([m,v])=>[m,v*sg]);
-  const W=520,H=150,pad=30,mx=Math.max(1500,...pts.map(p=>Math.abs(p[1])))*1.15,xs=m=>pad+(m-10)/15*(W-pad*2),ys=v=>H/2-v/mx*(H/2-18);
-  const line=pts.length>1?`<polyline points="${pts.map(([m,v])=>`${xs(m).toFixed(1)},${ys(v).toFixed(1)}`).join(' ')}" class="fl ${win?'w':'l'}"/>`:'';
-  const svg=`<svg class="flowsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="시간대별 골드 차이"><line x1="${pad}" x2="${W-pad}" y1="${H/2}" y2="${H/2}" class="z"/>${[10,15,20,25].map(m=>`<text x="${xs(m)}" y="${H-2}" text-anchor="middle">${m}분</text>`).join('')}${line}${pts.map(([m,v])=>`<circle cx="${xs(m).toFixed(1)}" cy="${ys(v).toFixed(1)}" r="4" class="fp ${v>=0?'w':'l'}"/><text x="${xs(m).toFixed(1)}" y="${(ys(v)+(v>=0?-9:16)).toFixed(1)}" text-anchor="middle" class="fv">${fmtGd(v)}</text>`).join('')}</svg>`;
+  const pts=[[10,g.g10],[15,g.gd],[20,g.g20],[25,g.g25]].filter(x=>x[1]!=null).map(([mm,v])=>[mm,v*sg]);
+  const W=560,H=220,L=52,Rr=28,Tp=24,B=28,mx=Math.max(1000,...pts.map(p=>Math.abs(p[1]))),st=niceStep(mx),top=Math.ceil(mx/st)*st;
+  const xs=mm=>L+28+(mm-10)/15*(W-L-28-Rr),ys=v=>Tp+(top-v)/(2*top)*(H-Tp-B);
+  const ticks=[];for(let v=-top;v<=top;v+=st)ticks.push(v);
+  const grid=ticks.map(v=>`<line x1="${L}" x2="${W-Rr}" y1="${ys(v).toFixed(1)}" y2="${ys(v).toFixed(1)}" class="${v===0?'z':'gl'}"/><text x="${L-8}" y="${(ys(v)+4).toFixed(1)}" text-anchor="end">${v===0?'0':gdk(v)}</text>`).join('');
+  const line=pts.length>1?`<polyline points="${pts.map(([mm,v])=>`${xs(mm).toFixed(1)},${ys(v).toFixed(1)}`).join(' ')}" class="fl"/>`:'';
+  const svg=`<svg class="flowsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(tn(me))} 기준 시간대별 골드 차이">${grid}${[10,15,20,25].map(mm=>`<text x="${xs(mm)}" y="${H-8}" text-anchor="middle">${mm}분</text>`).join('')}${line}${pts.map(([mm,v])=>`<circle cx="${xs(mm).toFixed(1)}" cy="${ys(v).toFixed(1)}" r="4" class="fp ${v>=0?'w':'l'}"/><text x="${xs(mm).toFixed(1)}" y="${(ys(v)-9).toFixed(1)}" text-anchor="middle" class="fv">${fmtGd(v)}</text>`).join('')}</svg>`;
   const sgn=v=>v==null?'-':(v>0?'+':v<0?'−':'')+Math.abs(Math.round(v)).toLocaleString('ko-KR');
-  const at=(k10,k15)=>`<td class="num">${sgn(T(k10))}</td><td class="num">${sgn(T(k15))}</td>`;
-  const firsts=[['첫 킬',T('fb')==null?null:T('fb')===1],['첫 포탑',g.ft?g.ft===code:null],['첫 미드 포탑',T('fmt')==null?null:T('fmt')===1],['먼저 포탑 3개',T('f3t')==null?null:T('f3t')===1],['첫 용',g.fd?g.fd===code:null],['첫 전령',g.fh?g.fh===code:null],['첫 바론',g.fb?g.fb===code:null]];
-  const fchips=firsts.filter(x=>x[1]!=null).map(([l,ours])=>`<span class="fchip ${ours?'us':'them'}">${l} · ${ours?esc(teamStyle(me).short):esc(teamStyle(them).short)}</span>`).join('');
+  const yn=(ours)=>ours==null?'-':ours?esc(teamStyle(me).short):esc(teamStyle(them).short);
+  const firsts=[['첫 킬',T('fb')==null?null:T('fb')===1],['첫 포탑',g.ft?g.ft===code:null],['첫 미드 포탑',T('fmt')==null?null:T('fmt')===1],['포탑 3개 선점',T('f3t')==null?null:T('f3t')===1],['첫 용',g.fd?g.fd===code:null],['첫 전령',g.fh?g.fh===code:null],['첫 바론',g.fb?g.fb===code:null]].filter(x=>x[1]!=null);
   const pair=(l,a,b2)=>a==null&&b2==null?'':`<tr><td>${l}</td><td class="num"><b>${a??'-'}</b></td><td class="num">${b2??'-'}</td></tr>`;
-  const fin=[pair('킬',T('k'),O('k')),pair('포탑',T('tow'),O('tow')),pair('용',T('drg'),O('drg')),pair('공허 유충',T('grub'),O('grub')),pair('바론',T('bar'),O('bar')),pair('억제기',T('inh'),O('inh')),pair('포탑 방패',T('plt'),O('plt'))].join('');
-  const a=arcOf(g,code),cv=curve(g,code);
-  const title=`${esc(tn(me))}의 ${a?ARC_LABEL[a]:(win?'승리':'패배')}${cv?`: 15분 ${fmtGd(cv[1])}, 25분 ${fmtGd(cv[3])}`:''}`;
-  return wbox({tags:[esc(g.lg),fmtDate(g.d),`${g.s}세트`,`${emblem(me,18)} ${esc(tn(me))} 기준`,g.len?`${g.len}분`:''].filter(Boolean),title,body:`    ${b.team&&g.bt!==b.team&&g.rt!==b.team?`<p style="margin:0 0 10px"><span class="tag warn">${esc(b.team)}가 뛴 경기가 아니라 블루 진영 기준으로 보여 줘요</span></p>`:''}
-    <div class="wpicks">${[code,o].map(c=>{const nm=c==='b'?g.bt:g.rt;return `<div>${emblem(nm,20)}<b>${esc(tn(nm))}</b>${g.w===c?'<em class="pos">승</em>':''}<span class="wic">${g[c].map(x=>x<0?'<i class="tph">?</i>':`<img src="${CH[x].icon}" alt="${esc(CH[x].ko)}" title="${esc(CH[x].ko)}" width="28" height="28">`).join('')}</span></div>`}).join('')}</div>
-    <h5 class="sub5">시간대별 골드 차이 (${esc(tn(me))} 기준)</h5>${svg}
-    <div class="mgrid">
-      <div class="mpanel"><h5>초반 차이</h5><table class="ptable"><thead><tr><th></th><th class="num">10분</th><th class="num">15분</th></tr></thead><tbody>
+  const sh=esc(teamStyle(me).short),so=esc(teamStyle(them).short);
+  return dbox(`${esc(tn(me))} vs ${esc(tn(them))} · ${win?'승':'패'}`,`${esc(g.lg)} · ${fmtDate(g.d)} · ${g.s}세트${g.len?` · ${g.len}분`:''} · ${esc(tn(me))} 기준`,
+    `<div class="wpicks">${[code,o].map(c=>{const nm=c==='b'?g.bt:g.rt;return `<div>${emblem(nm,20)}<b>${esc(tn(nm))}</b><span class="muted">${c==='b'?'블루':'레드'}</span><span class="wic">${g[c].map(x=>x<0?'<i class="tph">?</i>':`<img src="${CH[x].icon}" alt="${esc(CH[x].ko)}" title="${esc(CH[x].ko)}" width="28" height="28">`).join('')}</span></div>`}).join('')}</div>
+     <p class="dlab">골드 차이</p>${svg}
+     <div class="mgrid">
+      <div class="mpanel"><table class="ptable"><thead><tr><th>차이</th><th class="num">10분</th><th class="num">15분</th></tr></thead><tbody>
         <tr><td>골드</td><td class="num">${sgn(g.g10==null?null:g.g10*sg)}</td><td class="num">${sgn(g.gd==null?null:g.gd*sg)}</td></tr>
-        <tr><td>경험치</td>${at('xpd10','xpd15')}</tr><tr><td>CS</td>${at('csd10','csd15')}</tr>
-        <tr><td>킬</td><td class="num">-</td><td class="num">${T('k15')??'-'} : ${O('k15')??'-'}</td></tr></tbody></table></div>
-      <div class="mpanel"><h5>최종 <span class="muted" style="font-weight:500">${esc(teamStyle(me).short)} : ${esc(teamStyle(them).short)}</span></h5><table class="ptable"><tbody>${fin}</tbody></table></div>
-    </div>
-    <h5 class="sub5">먼저 가져간 것</h5><div class="fchips">${fchips}</div>`,foot:'골드·경험치·CS 차이는 10·15·20·25분 시점 값'});
+        <tr><td>경험치</td><td class="num">${sgn(T('xpd10'))}</td><td class="num">${sgn(T('xpd15'))}</td></tr>
+        <tr><td>CS</td><td class="num">${sgn(T('csd10'))}</td><td class="num">${sgn(T('csd15'))}</td></tr>
+        <tr><td>킬 (${sh}:${so})</td><td class="num">-</td><td class="num">${T('k15')??'-'} : ${O('k15')??'-'}</td></tr></tbody></table></div>
+      <div class="mpanel"><table class="ptable"><thead><tr><th>최종</th><th class="num">${sh}</th><th class="num">${so}</th></tr></thead><tbody>${[pair('킬',T('k'),O('k')),pair('포탑',T('tow'),O('tow')),pair('용',T('drg'),O('drg')),pair('공허 유충',T('grub'),O('grub')),pair('바론',T('bar'),O('bar')),pair('억제기',T('inh'),O('inh'))].join('')}</tbody></table></div>
+     </div>
+     <p class="dlab">먼저 가져간 쪽</p><div class="dstats fstats">${firsts.map(([l,ours])=>`<div><small>${l}</small><b class="${ours?'pos':''}">${yn(ours)}</b></div>`).join('')}</div>`,
+    '10·15·20·25분 시점 값');
 }
+
 /* 공개 사이트를 만들 때 쓰는 내보내기: 칼럼마다 근거 상자까지 계산한 본문 HTML (누르는 버튼은 뺀다) */
 window.dfExport=async function(){
   await loadStats();

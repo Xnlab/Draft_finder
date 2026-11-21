@@ -51,6 +51,6 @@ def test_drafts_and_templates_are_left_out(site):
 def test_boxes_are_prerendered_without_buttons(site):
     _, _, data = site
     html = "".join(p["html"] for p in data["posts"])
-    assert 'class="wbox"' in html                          # 근거 상자가 계산돼 들어 있다
+    assert 'class="dbox"' in html                          # 데이터 상자가 계산돼 들어 있다
     for gone in ("data-wsearch", "data-wseries", "data-again", "data-open", "검색기에서 열기"):
         assert gone not in html                            # 작업실로 가는 버튼은 없다

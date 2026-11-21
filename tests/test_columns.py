@@ -51,7 +51,8 @@ def test_parses_front_matter_paragraphs_and_embeds():
     ("@form n=5", "team="),
     ("@form team=T1 n=99", "3~30"),
     ("@form team=T1 until=11/14", "until"),
-    ("@flow team=T1", "nth=N 또는 id"),
+    ("@flow", "id=게임ID, nth=N, team"),
+    ("@flow team=T1 last=0", "1 이상"),
     ("@game nth=abc", "숫자여야"),
     ("@search blue.mid=Azir games=20", "0~10"),
 ])
@@ -116,3 +117,10 @@ def test_heading_and_box_lines_need_no_blank_line():
     c = parse_column("---\ntitle: t\ndate: 2026-01-01\n---\n## 제목\n@team name=T1\n문단 한 줄\n## 다음\n끝", "x")
     assert [b["type"] for b in c["blocks"]] == ["h", "team", "p", "h", "p"]
     assert c["blocks"][0]["text"] == "제목"
+
+
+def test_team_filters_for_search_and_flow():
+    c = parse_column('---\ntitle: t\ndate: 2026-01-01\n---\n@search team="Gen.G" blue.mid=Orianna\n\n@flow team="Gen.G"\n\n@flow team=T1 last=3', "x")
+    assert c["blocks"][0]["team"] == "Gen.G" and c["blocks"][0]["board"]["blue"] == {"mid": "Orianna"}
+    assert c["blocks"][1] == {"type": "flow", "last": 1, "team": "Gen.G"}
+    assert c["blocks"][2] == {"type": "flow", "last": 3, "team": "T1"}

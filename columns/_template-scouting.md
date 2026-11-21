@@ -22,12 +22,12 @@ lede: 상대 팀을 한 장에 정리하는 형식의 견본이에요. 팀 이�
 (최근에 어떻게 이기고 졌나. 초반에 앞서는 팀인가, 뒤집는 팀인가.)
 
 ## 대표 경기 하나
-@flow nth=40 team="Gen.G"
+@flow team="Gen.G"
 
 (이 경기를 고른 이유. 어느 시간대에 무엇이 갈렸나.)
 
 ## 밴픽 포인트
-@search blue.mid=Orianna
+@search team="Gen.G" blue.mid=Orianna
 
 (상대가 자주 꺼내는 조합, 우리가 먼저 가져가거나 밴해야 할 챔피언.)
 
