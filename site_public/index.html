@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Draft Finder</title>
+<style>
+/*@@WORKBENCH_CSS@@*/
+/* 공개 칼럼 사이트 전용 */
+.pub-top{display:flex;align-items:center;gap:20px;padding:16px 0;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
+.pub-top .nav a{text-decoration:none}
+.plist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.post{display:flex;flex-direction:column;gap:8px;padding:20px 22px;text-decoration:none;color:inherit;min-width:0}
+.post:hover{border-color:var(--accent)}
+.post .kick{font-size:.76rem;color:var(--faint);font-weight:700}
+.post h3{margin:0;font-size:1.12rem;line-height:1.4;letter-spacing:-.01em;text-wrap:balance}
+.post p{margin:0;color:var(--muted);font-size:.9rem}
+.post .ics{display:flex;gap:4px;margin-top:auto}
+.post .ics img{width:28px;height:28px;border-radius:7px}
+.intro{margin:0 0 22px}
+.intro h1{margin:0 0 6px;font-size:1.6rem;letter-spacing:-.02em}
+.intro p{margin:0;color:var(--muted)}
+.art .wbox button{pointer-events:none}
+@media (max-width:760px){.plist{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="pub-top">
+    <a class="logo" href="#"><i></i>Draft Finder</a>
+    <nav class="nav" aria-label="메뉴">
+      <a href="#" id="nav-column">칼럼</a>
+      <a href="#notes" id="nav-note">분석 노트</a>
+    </nav>
+    <span class="demo" id="demo-pill" hidden>데모 데이터 · 실제 경기가 아니에요</span>
+  </header>
+  <main id="view"></main>
+  <p class="foot" id="foot"></p>
+  <p class="foot legal">Draft Finder was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project. Draft Finder isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</p>
+</div>
+<script src="site.js"></script>
+</body>
+</html>

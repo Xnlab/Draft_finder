@@ -33,11 +33,12 @@ FLEX_EXTRA = {
     "sup": {"Maokai": .4},
 }
 
+# 실제 데이터와 같은 팀 이름을 쓴다 (칼럼의 @team name="Gen.G" 같은 상자가 데모에서도 그대로 돌게)
 TEAMS = {
-    "LCK": ["T1", "GEN", "HLE", "KT", "DK", "NS", "BRO", "DRX"],
-    "LPL": ["BLG", "JDG", "TES", "WBG", "LNG", "AL"],
-    "LEC": ["G2", "FNC", "KC", "MKOI", "VIT"],
-    "LCS": ["C9", "TL", "FLY", "100T"],
+    "LCK": ["T1", "Gen.G", "Hanwha Life Esports", "KT Rolster", "Dplus Kia", "Nongshim RedForce", "HANJIN BRION", "Kiwoom DRX"],
+    "LPL": ["Bilibili Gaming", "JD Gaming", "Top Esports", "Weibo Gaming", "Anyone's Legend"],
+    "LEC": ["G2 Esports", "Fnatic", "Karmine Corp", "Team Vitality"],
+    "LCS": ["Cloud9", "Team Liquid"],
 }
 
 PLAYER_KO = {"top": "탑", "jng": "정글", "mid": "미드", "bot": "원딜", "sup": "서폿"}
@@ -103,6 +104,10 @@ def _fake_stats(rng, row: dict, winner: str) -> None:
         t("wpm", round(rng.normal(3.8, .3), 2)); t("wcpm", round(rng.normal(1.7, .25), 2))
         t("vspm", round(rng.normal(10, .8), 2))
         t("csd15", int(rng.normal(25 if w else -25, 40)))
+        t("csd10", int(rng.normal(10 if w else -10, 25))); t("xpd10", int(rng.normal(150 if w else -150, 300)))
+        t("xpd15", int(rng.normal(300 if w else -300, 500))); t("k15", int(max(0, rng.normal(5 if w else 3, 2))))
+        t("fmt", int(row["first_tower"] == side)); t("f3t", int(w if rng.random() < .75 else not w))
+        t("inh", int(rng.integers(1, 3) if w else 0)); t("gspd", round(rng.normal(.04 if w else -.04, .03), 3))
         tk = max(kills[side], 1)
         csum = 0.0
         for pos in POSITIONS:

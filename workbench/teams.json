@@ -20,23 +20,5 @@
   "Karmine Corp": {"short": "KC", "ko": "Karmine Corp", "c": "#2B6BF0", "c2": "#0A1A3A"},
   "Team Vitality": {"short": "VIT", "ko": "Team Vitality", "c": "#F2D000", "c2": "#221C02"},
   "Cloud9": {"short": "C9", "ko": "Cloud9", "c": "#0A9BE0", "c2": "#062233"},
-  "Team Liquid": {"short": "TL", "ko": "Team Liquid", "c": "#1B4F9C", "c2": "#0A1830"},
-
-  "GEN": {"short": "GEN", "ko": "젠지", "c": "#AA8B56", "c2": "#14110B"},
-  "HLE": {"short": "HLE", "ko": "한화생명e스포츠", "c": "#F37321", "c2": "#1A1209"},
-  "DK": {"short": "DK", "ko": "디플러스 기아", "c": "#00A7B5", "c2": "#06222A"},
-  "KT": {"short": "KT", "ko": "KT 롤스터", "c": "#E4002B", "c2": "#1A0A0E"},
-  "NS": {"short": "NS", "ko": "농심 레드포스", "c": "#E60012", "c2": "#240608"},
-  "BRO": {"short": "BRO", "ko": "한진 브리온", "c": "#1FA971", "c2": "#08261B"},
-  "DRX": {"short": "DRX", "ko": "키움 DRX", "c": "#2F80ED", "c2": "#0B1E3D"},
-  "BLG": {"short": "BLG", "ko": "Bilibili Gaming", "c": "#00A1D6", "c2": "#062433"},
-  "JDG": {"short": "JDG", "ko": "JD Gaming", "c": "#E60012", "c2": "#250408"},
-  "TES": {"short": "TES", "ko": "Top Esports", "c": "#F5C400", "c2": "#241D02"},
-  "WBG": {"short": "WBG", "ko": "Weibo Gaming", "c": "#E6162D", "c2": "#250A0E"},
-  "G2": {"short": "G2", "ko": "G2 Esports", "c": "#8A94A0", "c2": "#101216"},
-  "FNC": {"short": "FNC", "ko": "Fnatic", "c": "#FF5900", "c2": "#241006"},
-  "KC": {"short": "KC", "ko": "Karmine Corp", "c": "#2B6BF0", "c2": "#0A1A3A"},
-  "VIT": {"short": "VIT", "ko": "Team Vitality", "c": "#F2D000", "c2": "#221C02"},
-  "C9": {"short": "C9", "ko": "Cloud9", "c": "#0A9BE0", "c2": "#062233"},
-  "TL": {"short": "TL", "ko": "Team Liquid", "c": "#1B4F9C", "c2": "#0A1830"}
+  "Team Liquid": {"short": "TL", "ko": "Team Liquid", "c": "#1B4F9C", "c2": "#0A1830"}
 }

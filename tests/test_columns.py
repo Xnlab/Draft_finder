@@ -47,6 +47,12 @@ def test_parses_front_matter_paragraphs_and_embeds():
     ("@game", "nth=N 또는 id"),
     ("@video x=1", "알 수 없는 상자"),
     ("@search blue.mid", "key=value"),
+    ("@team", "name="),
+    ("@form n=5", "team="),
+    ("@form team=T1 n=99", "3~30"),
+    ("@form team=T1 until=11/14", "until"),
+    ("@flow team=T1", "nth=N 또는 id"),
+    ("@game nth=abc", "숫자여야"),
 ])
 def test_bad_embeds_give_clear_errors_with_location(body, msg):
     text = "---\ntitle: t\ndate: 2026-01-01\n---\n본문\n\n" + body + "\n"
@@ -69,3 +75,42 @@ def test_repo_example_columns_parse_and_sort_newest_first():
     cols = load_columns(Path(__file__).resolve().parent.parent / "columns")
     assert len(cols) >= 3 and [c["date"] for c in cols] == sorted((c["date"] for c in cols), reverse=True)
     assert all(c["blocks"] for c in cols)
+
+
+def test_new_boxes_and_quoted_values():
+    text = """---
+title: t
+date: 2026-11-21
+kind: note
+draft: true
+---
+@team name="Hanwha Life Esports"
+
+@form team=Gen.G n=12 until=2026-11-14
+
+@flow id=ABC_123 team="T1"
+
+@search blue.bot=Kai'Sa
+"""
+    c = parse_column(text, "n")
+    assert c["kind"] == "note" and c["draft"] is True
+    assert c["blocks"][0] == {"type": "team", "name": "Hanwha Life Esports"}
+    assert c["blocks"][1] == {"type": "form", "team": "Gen.G", "n": 12, "until": "2026-11-14"}
+    assert c["blocks"][2] == {"type": "flow", "id": "ABC_123", "team": "T1"}
+    assert c["blocks"][3]["board"]["blue"] == {"bot": "Kai'Sa"}       # 작은따옴표가 든 이름도 그대로
+
+
+def test_kind_and_draft_defaults_and_errors():
+    base = "---\ntitle: t\ndate: 2026-01-01\n{}---\n본문\n"
+    c = parse_column(base.format(""), "x")
+    assert c["kind"] == "column" and c["draft"] is False
+    with pytest.raises(ColumnError, match="kind"):
+        parse_column(base.format("kind: essay\n"), "x")
+    with pytest.raises(ColumnError, match="draft"):
+        parse_column(base.format("draft: yes\n"), "x")
+
+
+def test_heading_and_box_lines_need_no_blank_line():
+    c = parse_column("---\ntitle: t\ndate: 2026-01-01\n---\n## 제목\n@team name=T1\n문단 한 줄\n## 다음\n끝", "x")
+    assert [b["type"] for b in c["blocks"]] == ["h", "team", "p", "h", "p"]
+    assert c["blocks"][0]["text"] == "제목"

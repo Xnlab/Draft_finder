@@ -17,6 +17,7 @@ POSITIONS = ["top", "jng", "mid", "bot", "sup"]
 ROOT = Path(__file__).resolve().parent.parent
 RAW_DIR = ROOT / "data" / "raw"
 OUT_PATH = ROOT / "data" / "games.parquet"
+FULL_PATH = ROOT / "data" / "players.parquet"   # 원본 165개 열 전부 (분석용, 경기당 12줄)
 
 NEEDED = (
     ["gameid", "datacompleteness", "league", "year", "split", "playoffs", "date", "game",
@@ -31,6 +32,9 @@ TEAM_STATS = {
     "inf": "infernals", "mtn": "mountains", "cld": "clouds", "ocn": "oceans", "chm": "chemtechs", "hex": "hextechs",
     "eld": "elders", "her": "heralds", "grub": "void_grubs", "bar": "barons", "tow": "towers", "plt": "turretplates",
     "gold": "totalgold", "dpm": "dpm", "wpm": "wpm", "wcpm": "wcpm", "vspm": "vspm", "csd15": "csdiffat15",
+    # 경기 흐름: 10·15분 시점 차이, 15분 킬, 포탑 흐름, 억제기, 골드 지출 차이
+    "csd10": "csdiffat10", "xpd10": "xpdiffat10", "xpd15": "xpdiffat15", "k15": "killsat15",
+    "fmt": "firstmidtower", "f3t": "firsttothreetowers", "inh": "inhibitors", "gspd": "gspd",
 }
 # 선수 지표(경기마다 선수 줄의 값). 팀 CS/분은 선수 cspm의 합으로 만든다(팀 줄의 cspm은 7% 비어 있다).
 PLAYER_STATS = {
@@ -189,8 +193,21 @@ def warn_unknown_names(games: pd.DataFrame) -> list[str]:
     return resolver.unknown_in_data(names)
 
 
-def prepare(raw_path: Path | None = None, out_path: Path = OUT_PATH) -> pd.DataFrame:
+def save_full(raw_path: Path, out_path: Path = FULL_PATH) -> int:
+    """원본의 모든 열을 그대로 parquet으로 저장한다 (화면에 안 쓰는 지표도 분석에서 쓸 수 있게).
+    patch와 ID 열은 글자로 읽는다."""
+    full = pd.read_csv(raw_path, low_memory=False,
+                       dtype={"patch": str, "gameid": str, "playername": str, "teamid": str, "playerid": str})
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    full.to_parquet(out_path, index=False)
+    return len(full)
+
+
+def prepare(raw_path: Path | None = None, out_path: Path = OUT_PATH, full_path: Path | None = FULL_PATH) -> pd.DataFrame:
     raw_path = Path(raw_path) if raw_path else find_raw_csv()
+    if full_path is not None:
+        n = save_full(raw_path, full_path)
+        print(f"원본 전체 열 {n:,}줄 -> {full_path}")
     games, report = build_games(load_raw(raw_path))
     out_path.parent.mkdir(parents=True, exist_ok=True)
     games.to_parquet(out_path, index=False)

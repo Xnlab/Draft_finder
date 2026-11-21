@@ -474,13 +474,13 @@ function colIcons(c){
   for(const b of c.blocks){
     if(b.type==='search')return[...Object.values(b.board.blue||{}),...Object.values(b.board.red||{})].map(en=>CHIDX[en]).filter(x=>x!=null);
     if(b.type==='series'){const s=pickSeries(b);if(s)return s.games[0].b.concat(s.games[0].r).filter(x=>x>=0).slice(0,6)}
-    if(b.type==='game'){const g=pickGame(b);if(g)return g.b.concat(g.r).filter(x=>x>=0).slice(0,6)}
+    if(b.type==='game'||b.type==='flow'){const g=pickGame(b);if(g)return g.b.concat(g.r).filter(x=>x>=0).slice(0,6)}
   }
   return[];
 }
 function colCard(c,i){
   const ids=colIcons(c);
-  return `<article class="card col"><div class="kick">${esc(c.kick||'칼럼')} · ${fmtDate(c.date)}</div><h3>${esc(c.title)}</h3><p>${esc(c.lede)}</p>
+  return `<article class="card col"><div class="kick">${c.draft?'<span class="tag warn">초안</span> ':''}${c.kind==='note'?'분석 노트':esc(c.kick||'칼럼')} · ${fmtDate(c.date)}</div><h3>${esc(c.title)}</h3><p>${esc(c.lede)}</p>
     <div class="ics">${ids.map(id=>`<img src="${CH[id].icon}" alt="${esc(CH[id].ko)}" width="28" height="28">`).join('')}</div>
     <button type="button" data-col="${i}">칼럼 읽기</button></article>`;
 }
@@ -542,21 +542,27 @@ function gameWidget(b){
   const g=pickGame(b);if(!g)return '';
   return `<section class="wbox"><div class="wh"><span class="b">근거</span><span>경기 하나</span></div><div class="games one">${gameStripHtml(g)}</div></section>`;
 }
-function renderColumn(i){
-  S.col=i;
-  const c=COLUMNS[i],box=$('#column-box');
-  if(!c){box.innerHTML='<div class="card empty-state"><h2>찾는 칼럼이 없어요</h2><p class="muted" style="margin:0 0 12px">칼럼 목록으로 돌아가 주세요.</p><a class="btn" href="#columns">칼럼 목록</a></div>';return}
-  const body=c.blocks.map((b,j)=>{
+function columnBody(c,i){
+  return c.blocks.map((b,j)=>{
     if(b.type==='p')return `<p>${esc(b.text)}</p>`;
     if(b.type==='h')return `<h2>${esc(b.text)}</h2>`;
     if(b.type==='search')return searchWidget(b,`${i}:${j}`);
     if(b.type==='series')return seriesWidget(b);
     if(b.type==='game')return gameWidget(b);
+    if(b.type==='team')return teamWidget(b);
+    if(b.type==='form')return formWidget(b);
+    if(b.type==='flow')return flowWidget(b);
     return '';
   }).join('');
+}
+function renderColumn(i){
+  S.col=i;
+  const c=COLUMNS[i],box=$('#column-box');
+  if(!c){box.innerHTML='<div class="card empty-state"><h2>찾는 칼럼이 없어요</h2><p class="muted" style="margin:0 0 12px">칼럼 목록으로 돌아가 주세요.</p><a class="btn" href="#columns">칼럼 목록</a></div>';return}
+  const body=columnBody(c,i);
   const older=COLUMNS[i+1],newer=COLUMNS[i-1];
   box.innerHTML=`<article class="art"><a class="chip" href="#columns">← 칼럼 목록</a>
-    <header><div class="kick">${esc(c.kick||'칼럼')} · ${fmtDate(c.date)}</div><h1>${esc(c.title)}</h1>${c.lede?`<p class="lede2">${esc(c.lede)}</p>`:''}</header>${body}
+    <header><div class="kick">${c.draft?'<span class="tag warn">초안 · 공개 사이트에 안 실림</span> ':''}${c.kind==='note'?'분석 노트':esc(c.kick||'칼럼')} · ${fmtDate(c.date)}</div><h1>${esc(c.title)}</h1>${c.lede?`<p class="lede2">${esc(c.lede)}</p>`:''}</header>${body}
     <nav class="artnav">${older?`<a href="#column-${i+1}"><small>이전 글</small>${esc(older.title)}</a>`:'<span></span>'}${newer?`<a href="#column-${i-1}"><small>다음 글</small>${esc(newer.title)}</a>`:''}</nav></article>`;
 }
 function openWidgetSearch(ref){
@@ -796,6 +802,7 @@ function loadStats(){
   }).catch(e=>{console.warn(e);ST=false}).then(()=>{
     if(!$('#view-team').hidden)renderTeam(S.team);
     if(!$('#view-teams').hidden)renderTeams();
+    if(!$('#view-column').hidden)renderColumn(S.col);
   });
   return STP;
 }
@@ -933,7 +940,11 @@ function radarSvg(t,m){
 }
 function teamStatsHtml(t){
   if(ST===null){loadStats();return '<section class="card story"><h2 class="ptitle">리그 비교</h2><p>지표를 불러오는 중이에요…</p></section>'}
-  if(ST===false)return '';
+  const inner=teamStatsInner(t);if(!inner)return '';
+  return `<section class="card story"><h2 class="ptitle">리그 비교 <span>${esc(tn(t.name))} vs ${esc(t.league)} ${leagueMetrics(t.league).length}팀</span></h2>${inner}</section>`;
+}
+function teamStatsInner(t){
+  if(!ST)return '';
   const m=teamMetrics(t);if(!m)return '';
   const veil=S.spoiler&&!S.statsRevealed,lg=t.league,nt=leagueMetrics(lg).length;
   const rows=[...new Set(MDEF.map(x=>x[0]))].map(gname=>`<div class="mgh">${gname}</div>`+MDEF.filter(x=>x[0]===gname).map(([,k,label,fmt,dir,sp,neu])=>{
@@ -942,16 +953,18 @@ function teamStatsHtml(t){
     const rk=rankOf(lg,k,dir,v),third=rk?Math.ceil(rk.n/3):0,tone=!rk||neu?'':rk.r<=third?'good':rk.r>rk.n-third?'bad':'';
     return `<div class="mrow"><span class="rkb ${tone}" title="${esc(lg)} ${rk?rk.n:''}팀 중">${rk?rk.r+'위':'–'}</span><span class="ml">${label}</span><b class="mv">${fmt(v)}</b><span class="mav">${rk?fmt(rk.avg):''}</span></div>`;
   }).join('')).join('');
-  return `<section class="card story"><h2 class="ptitle">리그 비교 <span>${esc(tn(t.name))} vs ${esc(lg)} ${nt}팀</span></h2>
-    ${radarSvg(t,m)}
+  return `${radarSvg(t,m)}
     <p class="rel" style="margin:0 0 6px;text-align:center">점선은 ${esc(lg)}의 가운데(중간 순위)예요. 바깥으로 갈수록 리그에서 앞서요.</p>
     <div class="mhead"><span>순위</span><span></span><span>${esc(tn(t.name))}</span><span>리그 평균</span></div>${rows}
-    <p class="rel" style="margin:12px 0 0">시즌 ${m.n}경기 기준. 초록은 리그 상위 3분의 1, 빨강은 하위 3분의 1이에요. 높고 낮음이 곧 잘하고 못함은 아니에요(경기당 킬이 적은 팀이 운영으로 이기기도 해요).</p></section>`;
+    <p class="rel" style="margin:12px 0 0">시즌 ${m.n}경기 기준. 초록은 리그 상위 3분의 1, 빨강은 하위 3분의 1이에요. 높고 낮음이 곧 잘하고 못함은 아니에요(경기당 킬이 적은 팀이 운영으로 이기기도 해요).</p>`;
 }
 /* 최근 흐름: 경기마다 15분 골드 차이 막대 + 승패 + 상대 */
 function formChart(t){
   const veil=S.spoiler&&!S.statsRevealed,list=t.games.slice(-18);
   if(veil)return `<section class="card story"><h2 class="ptitle">최근 흐름</h2><div class="stat veilbox" style="margin-top:8px"><div class="k">결과 가림 중</div><p style="margin:4px 0 10px">경기별 골드 차이와 승패는 결과를 알려 줘서 가렸어요.</p><button class="btn" type="button" data-stats>통계 보기</button></div></section>`;
+  return `<section class="card story"><h2 class="ptitle">최근 흐름 <span>최근 ${list.length}경기 · 막대는 15분 골드 차이</span></h2>${formInner(list)}</section>`;
+}
+function formInner(list){
   let prev='';
   const cols=list.map(({g,code})=>{
     const v=g.gd==null?null:(code==='b'?g.gd:-g.gd),win=g.w===code,o=code==='b'?g.rt:g.bt;
@@ -962,7 +975,7 @@ function formChart(t){
       <span class="fbar"><i class="${win?'w':'l'} ${v!=null&&v<0?'dn':'up'}" style="height:${h}px"></i>${lab?`<em class="${v<0?'dn':'up'}" style="${v<0?'top':'bottom'}:calc(50% + ${h+2}px)">${lab}</em>`:''}</span>
       <span class="fo">${emblem(o,22)}</span><span class="fr ${win?'w':'l'}">${win?'승':'패'}</span></button>`;
   }).join('');
-  return `<section class="card story"><h2 class="ptitle">최근 흐름 <span>최근 ${list.length}경기 · 막대는 15분 골드 차이</span></h2><div class="form">${cols}</div></section>`;
+  return `<div class="form">${cols}</div>`;
 }
 /* 챔피언 픽(승패, 경기 수 막대)과 밴(진영별) 표 */
 function teamChampTables(t,lim){
@@ -1068,6 +1081,59 @@ function teamBody(t,mine){
   }
   return `${teamHead(t,mine)}<div class="tlayout">${seriesSide(t)}<div class="tcontent">${main}</div></div>`;
 }
+
+/* ---------- 칼럼 상자: @team(팀 지표), @form(최근 흐름), @flow(경기 하나의 흐름) ---------- */
+const findTeam=name=>TEAMIDX[name]!=null?TEAMS[TEAMIDX[name]]:null;
+const wErr=msg=>`<section class="wbox"><div class="wh"><span class="b">근거</span><span>${esc(msg)}</span></div></section>`;
+const wLoading='<section class="wbox"><p class="muted" style="margin:0">지표를 불러오는 중이에요…</p></section>';
+function teamWidget(b){
+  const t=findTeam(b.name);if(!t)return wErr(`팀을 찾을 수 없어요: ${b.name}`);
+  if(ST===null){loadStats();return wLoading}
+  const inner=teamStatsInner(t);if(!inner)return wErr(`${b.name}: 지표가 없어요`);
+  return `<section class="wbox"><div class="wh"><span class="b">근거</span><span>${emblem(t.name,20)} ${esc(tn(t.name))} 팀 지표</span><span class="tag">${esc(t.league)} 팀들과 비교</span></div>${inner}</section>`;
+}
+function formWidget(b){
+  const t=findTeam(b.team);if(!t)return wErr(`팀을 찾을 수 없어요: ${b.team}`);
+  const list=t.games.filter(x=>!b.until||x.g.d<=b.until).slice(-b.n);
+  if(!list.length)return wErr('조건에 맞는 경기가 없어요');
+  return `<section class="wbox"><div class="wh"><span class="b">근거</span><span>${emblem(t.name,20)} ${esc(tn(t.name))} 최근 ${list.length}경기</span><span class="tag">${fmtDate(list[0].g.d)} ~ ${fmtDate(list[list.length-1].g.d)}</span><span class="tag">막대는 15분 골드 차이</span></div>${formInner(list)}</section>`;
+}
+/* 경기 하나의 시간대별 흐름: 골드 곡선, 10·15분 차이, 먼저 가져간 오브젝트, 최종 수치 */
+function flowWidget(b){
+  const g=pickGame(b);if(!g)return wErr('경기를 찾을 수 없어요');
+  if(ST===null){loadStats();return wLoading}
+  const code=b.team&&g.rt===b.team?'r':'b',o=opp(code),me=code==='b'?g.bt:g.rt,them=code==='b'?g.rt:g.bt,win=g.w===code,sg=code==='b'?1:-1;
+  const T=k=>tSt(g,code,k),O=k=>tSt(g,o,k);
+  const pts=[[10,g.g10],[15,g.gd],[20,g.g20],[25,g.g25]].filter(x=>x[1]!=null).map(([m,v])=>[m,v*sg]);
+  const W=520,H=150,pad=30,mx=Math.max(1500,...pts.map(p=>Math.abs(p[1])))*1.15,xs=m=>pad+(m-10)/15*(W-pad*2),ys=v=>H/2-v/mx*(H/2-18);
+  const line=pts.length>1?`<polyline points="${pts.map(([m,v])=>`${xs(m).toFixed(1)},${ys(v).toFixed(1)}`).join(' ')}" class="fl ${win?'w':'l'}"/>`:'';
+  const svg=`<svg class="flowsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="시간대별 골드 차이"><line x1="${pad}" x2="${W-pad}" y1="${H/2}" y2="${H/2}" class="z"/>${[10,15,20,25].map(m=>`<text x="${xs(m)}" y="${H-2}" text-anchor="middle">${m}분</text>`).join('')}${line}${pts.map(([m,v])=>`<circle cx="${xs(m).toFixed(1)}" cy="${ys(v).toFixed(1)}" r="4" class="fp ${v>=0?'w':'l'}"/><text x="${xs(m).toFixed(1)}" y="${(ys(v)+(v>=0?-9:16)).toFixed(1)}" text-anchor="middle" class="fv">${fmtGd(v)}</text>`).join('')}</svg>`;
+  const sgn=v=>v==null?'-':(v>0?'+':v<0?'−':'')+Math.abs(Math.round(v)).toLocaleString('ko-KR');
+  const at=(k10,k15)=>`<td class="num">${sgn(T(k10))}</td><td class="num">${sgn(T(k15))}</td>`;
+  const firsts=[['첫 킬',T('fb')==null?null:T('fb')===1],['첫 포탑',g.ft?g.ft===code:null],['첫 미드 포탑',T('fmt')==null?null:T('fmt')===1],['먼저 포탑 3개',T('f3t')==null?null:T('f3t')===1],['첫 용',g.fd?g.fd===code:null],['첫 전령',g.fh?g.fh===code:null],['첫 바론',g.fb?g.fb===code:null]];
+  const fchips=firsts.filter(x=>x[1]!=null).map(([l,ours])=>`<span class="fchip ${ours?'us':'them'}">${l} · ${ours?esc(teamStyle(me).short):esc(teamStyle(them).short)}</span>`).join('');
+  const pair=(l,a,b2)=>a==null&&b2==null?'':`<tr><td>${l}</td><td class="num"><b>${a??'-'}</b></td><td class="num">${b2??'-'}</td></tr>`;
+  const fin=[pair('킬',T('k'),O('k')),pair('포탑',T('tow'),O('tow')),pair('용',T('drg'),O('drg')),pair('공허 유충',T('grub'),O('grub')),pair('바론',T('bar'),O('bar')),pair('억제기',T('inh'),O('inh')),pair('포탑 방패',T('plt'),O('plt'))].join('');
+  return `<section class="wbox"><div class="wh"><span class="b">근거</span><span>${esc(g.lg)} · ${fmtDate(g.d)} · ${g.s}세트</span><span>${emblem(me,20)} ${esc(tn(me))} 기준 vs ${emblem(them,20)} ${esc(tn(them))}</span><span class="gres ${win?'win':'loss'}" style="margin-left:0">${win?'승':'패'}</span>${g.len?`<span class="tag">${g.len}분</span>`:''}</div>
+    ${b.team&&g.bt!==b.team&&g.rt!==b.team?`<p style="margin:0 0 10px"><span class="tag warn">${esc(b.team)}가 뛴 경기가 아니라 블루 진영 기준으로 보여 줘요</span></p>`:''}
+    <div class="games one" style="margin-bottom:12px">${gameStripHtml(g)}</div>
+    <h5 class="sub5">시간대별 골드 차이 (${esc(tn(me))} 기준)</h5>${svg}
+    <div class="mgrid">
+      <div class="mpanel"><h5>초반 차이</h5><table class="ptable"><thead><tr><th></th><th class="num">10분</th><th class="num">15분</th></tr></thead><tbody>
+        <tr><td>골드</td><td class="num">${sgn(g.g10==null?null:g.g10*sg)}</td><td class="num">${sgn(g.gd==null?null:g.gd*sg)}</td></tr>
+        <tr><td>경험치</td>${at('xpd10','xpd15')}</tr><tr><td>CS</td>${at('csd10','csd15')}</tr>
+        <tr><td>킬</td><td class="num">-</td><td class="num">${T('k15')??'-'} : ${O('k15')??'-'}</td></tr></tbody></table></div>
+      <div class="mpanel"><h5>최종 <span class="muted" style="font-weight:500">${esc(teamStyle(me).short)} : ${esc(teamStyle(them).short)}</span></h5><table class="ptable"><tbody>${fin}</tbody></table></div>
+    </div>
+    <h5 class="sub5">먼저 가져간 것</h5><div class="fchips">${fchips}</div></section>`;
+}
+/* 공개 사이트를 만들 때 쓰는 내보내기: 칼럼마다 근거 상자까지 계산한 본문 HTML (누르는 버튼은 뺀다) */
+window.dfExport=async function(){
+  await loadStats();
+  S.spoiler=false;S.statsRevealed=true;
+  const clean=h=>h.replace(/<div class="dact"[^>]*>[\s\S]*?<\/div>/g,'').replace(/<button class="again"[^>]*>[^<]*<\/button>/g,'').replace(/ data-(open|team|twin)="[^"]*"/g,'').replace(/ tabindex="0"/g,'');
+  return COLUMNS.map((c,i)=>({slug:c.slug,html:clean(columnBody(c,i))}));
+};
 
 /* ---------- 내 팀(마이 팀 고르기 또는 팀 홈), 팀 페이지 ---------- */
 function teamPickList(){

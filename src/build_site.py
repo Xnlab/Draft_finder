@@ -1,9 +1,9 @@
 """사이트가 읽는 데이터 파일을 만든다 (champs.json, games.json, meta.json, columns.json, icons/).
 
-    python -m src.build_site --demo --out mockup   # 가짜 경기로 (저장소에 올려도 되는 데모)
+    python -m src.build_site --demo --out workbench   # 가짜 경기로 (저장소에 올려도 되는 데모)
     python -m src.build_site --out site            # data/games.parquet로 (실제 데이터. 저장소에 올리지 않는다)
 
-화면(index.html, app.js)은 `mockup/` 폴더에 있고, 이 스크립트는 같은 폴더 안에 데이터만 채운다.
+화면(index.html, app.js)은 `workbench/` 폴더에 있고, 이 스크립트는 같은 폴더 안에 데이터만 채운다.
 실제 데이터는 `site/`로 만들고 화면 파일을 함께 복사한다(--with-app).
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ from src.columns import load_columns
 
 ROOT = Path(__file__).resolve().parent.parent
 POS = ["top", "jng", "mid", "bot", "sup"]
-APP_DIR = ROOT / "mockup"
+APP_DIR = ROOT / "workbench"
 ICON_CACHE = ROOT / "data" / "icon_cache"
 ICON_PX = 72
 
@@ -105,7 +105,9 @@ def game_records(df: pd.DataFrame, idx: dict) -> list[dict]:
 TEAM_FIELDS = [("k", None), ("d", None), ("fb", None), ("drg", None), ("inf", None), ("mtn", None), ("cld", None),
                ("ocn", None), ("chm", None), ("hex", None), ("eld", None), ("her", None), ("grub", None),
                ("bar", None), ("tow", None), ("plt", None), ("gpm", None), ("dpm", None), ("wpm", 2),
-               ("wcpm", 2), ("vspm", 2), ("cspm", 1), ("csd15", None)]
+               ("wcpm", 2), ("vspm", 2), ("cspm", 1), ("csd15", None),
+               ("csd10", None), ("xpd10", None), ("xpd15", None), ("k15", None), ("fmt", None), ("f3t", None),
+               ("inh", None), ("gspd", 3)]
 PLAYER_FIELDS = [("k", None), ("d", None), ("a", None), ("dmg", 3), ("gsh", 3), ("vspm", 2), ("cspm", 1),
                  ("dpm", None), ("csd15", None)]
 

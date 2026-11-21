@@ -1,9 +1,9 @@
-"""mockup/teams.json(팀 엠블럼 색·한글 이름 표)이 깨지지 않았는지 확인한다. 직접 고쳐 쓰는 파일이라 실수를 막아 준다."""
+"""workbench/teams.json(팀 엠블럼 색·한글 이름 표)이 깨지지 않았는지 확인한다. 직접 고쳐 쓰는 파일이라 실수를 막아 준다."""
 import json
 import re
 from pathlib import Path
 
-TEAMS = json.loads((Path(__file__).resolve().parent.parent / "mockup" / "teams.json").read_text(encoding="utf-8"))
+TEAMS = json.loads((Path(__file__).resolve().parent.parent / "workbench" / "teams.json").read_text(encoding="utf-8"))
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 

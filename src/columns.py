@@ -8,7 +8,9 @@
     date: 2026-11-19              (필수)
     kick: 예시                    (선택, 제목 위에 붙는 짧은 말)
     lede: 목록에 보일 한두 문장   (선택)
-    teams: T1, Gen.G              (선택, 이 글과 관련된 팀의 영문 이름. 그 팀의 마이 팀 화면에 글이 나온다)
+    teams: T1, Gen.G              (선택, 이 글과 관련된 팀의 영문 이름)
+    kind: column                  (선택, column=칼럼 / note=분석 노트)
+    draft: true                   (선택, true면 공개 사이트에 싣지 않는다. 작업실에서는 보인다)
     ---
 
     본문 문단. 빈 줄로 문단을 나눈다.
@@ -18,6 +20,11 @@
     @search blue.mid=Azir red.mid=Orianna sets=late
     @series pick=longest set=4
     @game nth=40            (또는 id=게임ID)
+    @team name="Gen.G"      (팀 지표를 리그 안 순위·평균과 비교)
+    @form team="Gen.G" n=10 until=2026-11-14   (최근 n경기 15분 골드 차이와 승패)
+    @flow id=게임ID team="Gen.G"               (경기 하나의 시간대별 흐름. team은 누구 기준으로 볼지)
+
+값에 빈칸이 있으면 큰따옴표로 감싼다: name="Hanwha Life Esports".
 
 `@search` 인자: `blue.<포지션>=챔피언(영문)`, `red.<포지션>=...`, `sets=all|early|late`,
 `patch=all|latest|last3`, `leagues=LCK,LPL`, `pos=any|exact`.
@@ -29,7 +36,9 @@ import re
 from pathlib import Path
 
 POSITIONS = ["top", "jng", "mid", "bot", "sup"]
-EMBEDS = {"search", "series", "game"}
+EMBEDS = {"search", "series", "game", "team", "form", "flow"}
+KINDS = {"column", "note"}
+_TOKEN = re.compile(r'(\S+?)=("([^"]*)"|\S+)|(\S+)')
 SEARCH_KEYS = {"sets": {"all", "early", "late"}, "patch": {"all", "latest", "last3"}, "pos": {"any", "exact"}}
 _EMBED_LINE = re.compile(r"^@(\w+)\b(.*)$")
 
@@ -39,13 +48,34 @@ class ColumnError(ValueError):
 
 
 def _args(raw: str) -> dict[str, str]:
+    """key=value 목록. 값에 빈칸이 있으면 큰따옴표로 감싼다 (name="Hanwha Life Esports")."""
     out = {}
-    for tok in raw.split():
-        if "=" not in tok:
-            raise ColumnError(f"'{tok}'는 key=value 모양이어야 합니다")
-        k, v = tok.split("=", 1)
-        out[k] = v
+    for m in _TOKEN.finditer(raw):
+        if m.group(4) is not None:
+            raise ColumnError(f"'{m.group(4)}'는 key=value 모양이어야 합니다")
+        out[m.group(1)] = m.group(3) if m.group(3) is not None else m.group(2)
     return out
+
+
+def _int(key: str, v: str) -> int:
+    try:
+        return int(v)
+    except ValueError:
+        raise ColumnError(f"{key}={v}: 숫자여야 합니다") from None
+
+
+def _only(kind: str, args: dict, allowed: set) -> None:
+    extra = set(args) - allowed
+    if extra:
+        raise ColumnError(f"@{kind}에 알 수 없는 인자 {sorted(extra)}")
+
+
+def _game_ref(kind: str, args: dict) -> dict:
+    if "nth" in args:
+        return {"nth": _int("nth", args["nth"])}
+    if "id" in args:
+        return {"id": args["id"]}
+    raise ColumnError(f"@{kind}에는 nth=N 또는 id=게임ID 중 하나가 필요합니다")
 
 
 def _check_embed(kind: str, args: dict) -> dict:
@@ -76,11 +106,33 @@ def _check_embed(kind: str, args: dict) -> dict:
         pick = args.get("pick", "longest")
         if pick not in {"longest", "latest"}:
             raise ColumnError("@series pick은 longest 또는 latest")
-        return {"pick": pick, "set": int(args["set"]) if "set" in args else None}
-    extra = set(args) - {"nth", "id"}
-    if extra or not args:
-        raise ColumnError("@game에는 nth=N 또는 id=게임ID 중 하나가 필요합니다")
-    return {"nth": int(args["nth"])} if "nth" in args else {"id": args["id"]}
+        return {"pick": pick, "set": _int("set", args["set"]) if "set" in args else None}
+    if kind == "team":
+        _only(kind, args, {"name"})
+        if not args.get("name"):
+            raise ColumnError('@team에는 name="팀 영문 이름"이 필요합니다')
+        return {"name": args["name"]}
+    if kind == "form":
+        _only(kind, args, {"team", "n", "until"})
+        if not args.get("team"):
+            raise ColumnError('@form에는 team="팀 영문 이름"이 필요합니다')
+        n = _int("n", args.get("n", "10"))
+        if not 3 <= n <= 30:
+            raise ColumnError("@form n은 3~30 사이여야 합니다")
+        out = {"team": args["team"], "n": n}
+        if "until" in args:
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args["until"]):
+                raise ColumnError("@form until은 2026-11-14 모양이어야 합니다")
+            out["until"] = args["until"]
+        return out
+    if kind == "flow":
+        _only(kind, args, {"nth", "id", "team"})
+        out = _game_ref(kind, args)
+        if args.get("team"):
+            out["team"] = args["team"]
+        return out
+    _only(kind, args, {"nth", "id"})
+    return _game_ref(kind, args)
 
 
 def parse_column(text: str, slug: str = "") -> dict:
@@ -97,8 +149,10 @@ def parse_column(text: str, slug: str = "") -> dict:
             raise ColumnError(f"{slug}: 머리말에 {need}가 없습니다")
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", meta["date"]):
         raise ColumnError(f"{slug}: date는 2026-11-19 모양이어야 합니다")
+    # 소제목 줄과 상자 줄은 빈 줄 없이 붙여 써도 따로 떼어 읽는다
+    body = re.sub(r"^(## .*|@\w+.*)$", r"\n\1\n", m.group(2), flags=re.M)
     blocks = []
-    for i, para in enumerate(re.split(r"\n\s*\n", m.group(2).strip()), 1):
+    for i, para in enumerate(re.split(r"\n\s*\n", body.strip()), 1):
         para = para.strip()
         if not para:
             continue
@@ -107,7 +161,7 @@ def parse_column(text: str, slug: str = "") -> dict:
         if em:
             kind = em.group(1)
             if kind not in EMBEDS:
-                raise ColumnError(f"{slug} {i}번째 문단: 알 수 없는 상자 @{kind} (search/series/game)")
+                raise ColumnError(f"{slug} {i}번째 문단: 알 수 없는 상자 @{kind} ({'/'.join(sorted(EMBEDS))})")
             try:
                 blocks.append({"type": kind, **_check_embed(kind, _args(em.group(2)))})
             except ColumnError as e:
@@ -117,8 +171,14 @@ def parse_column(text: str, slug: str = "") -> dict:
         else:
             blocks.append({"type": "p", "text": " ".join(x.strip() for x in lines)})
     teams = [t.strip() for t in meta.get("teams", "").split(",") if t.strip()]
+    kind = meta.get("kind", "column")
+    if kind not in KINDS:
+        raise ColumnError(f"{slug}: kind는 column 또는 note여야 합니다")
+    draft = meta.get("draft", "false").lower()
+    if draft not in {"true", "false"}:
+        raise ColumnError(f"{slug}: draft는 true 또는 false여야 합니다")
     return {"slug": slug, "title": meta["title"], "date": meta["date"], "kick": meta.get("kick", ""),
-            "lede": meta.get("lede", ""), "teams": teams, "blocks": blocks}
+            "lede": meta.get("lede", ""), "teams": teams, "kind": kind, "draft": draft == "true", "blocks": blocks}
 
 
 def load_columns(folder: Path) -> list[dict]:
