@@ -30,7 +30,7 @@ from src.columns import load_columns
 ROOT = Path(__file__).resolve().parent.parent
 PUBLIC_SRC = ROOT / "site_public"
 RENDER_JS = ROOT / "tools" / "render_columns.js"
-ICON_RE = re.compile(r"icons/[\w.\-]+\.jpg")
+ICON_RE = re.compile(r"(?:icons/[\w.\-]+\.jpg|logos/[\w.\-]+\.(?:png|svg|jpg|webp))")
 
 
 def workbench_css() -> str:
@@ -85,6 +85,8 @@ def build_public(df: pd.DataFrame, out: Path, demo: bool, columns_dir: Path, dra
         build(df, work, demo, columns_dir, ko_by_en, icon_files, version, download_icons)
         for f in ("index.html", "app.js", "teams.json"):
             shutil.copy(APP_DIR / f, work / f)
+        if (APP_DIR / "logos").exists():   # 허락받은 팀 로고
+            shutil.copytree(APP_DIR / "logos", work / "logos", dirs_exist_ok=True)
         rendered = {r["slug"]: r["html"] for r in render_columns(work)}
         posts, icons, ko = [], set(), team_names_ko()
         for c in keep:
@@ -92,9 +94,10 @@ def build_public(df: pd.DataFrame, out: Path, demo: bool, columns_dir: Path, dra
             used = ICON_RE.findall(html)
             icons.update(used)
             posts.append({k: c[k] for k in ("slug", "title", "date", "kick", "lede", "kind", "draft")}
-                         | {"html": html, "icons": list(dict.fromkeys(used))[:6], "minutes": reading_minutes(c),
+                         | {"html": html, "icons": [u for u in dict.fromkeys(used) if u.startswith("icons/")][:6], "minutes": reading_minutes(c),
                             "tags": [ko.get(t, t) for t in c["teams"]]})
         (out / "icons").mkdir(exist_ok=True)
+        (out / "logos").mkdir(exist_ok=True)
         for rel in icons:
             if (work / rel).exists():
                 shutil.copy(work / rel, out / rel)

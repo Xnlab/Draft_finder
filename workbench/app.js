@@ -690,6 +690,8 @@ function teamStyle(name){
 const tn=name=>teamStyle(name).ko||name;
 function emblem(name,size){
   const st=teamStyle(name),n=st.short.length,fs=Math.round(size*(n<=2?.4:n===3?.32:n===4?.26:.22));
+  // 사용 허락을 받은 팀만 teams.json에 logo가 있다. 없으면 약칭+팀 색 엠블럼
+  if(st.logo)return `<span class="eb lg" style="width:${size}px;height:${size}px" aria-hidden="true"><img src="${esc(st.logo)}" alt="" width="${size}" height="${size}"></span>`;
   return `<span class="eb" style="--c:${st.c};--c2:${st.c2};--f:${fgOn(st.c)};width:${size}px;height:${size}px;font-size:${fs}px" aria-hidden="true">${esc(st.short)}</span>`;
 }
 /* 마이 팀을 고르면 사이트 전체의 강조색, 배경 색조, 헤더가 그 팀 색으로 바뀐다 (라이트/다크 모두 글자 명암비를 맞춘다) */

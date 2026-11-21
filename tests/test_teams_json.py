@@ -31,3 +31,11 @@ def test_secondary_color_is_darker_than_primary():
         return 0.2126 * r + 0.7152 * g + 0.0722 * b
     for name, st in entries().items():
         assert lum(st["c2"]) <= lum(st["c"]) + 1, name
+
+
+def test_logo_paths_point_to_existing_files():
+    """로고는 허락받은 팀만 넣는다. 넣었다면 파일이 실제로 있어야 한다."""
+    root = Path(__file__).resolve().parent.parent / "workbench"
+    for name, st in entries().items():
+        if st.get("logo"):
+            assert st["logo"].startswith("logos/") and (root / st["logo"]).is_file(), f"{name}: {st['logo']} 파일이 없습니다"

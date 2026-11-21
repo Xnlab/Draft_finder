@@ -178,6 +178,8 @@ def main() -> None:
     if a.with_app:
         for f in ("index.html", "app.js", "teams.json"):
             shutil.copy(APP_DIR / f, a.out / f)
+        if (APP_DIR / "logos").exists():   # 허락받은 팀 로고
+            shutil.copytree(APP_DIR / "logos", a.out / "logos", dirs_exist_ok=True)
     print(("데모" if a.demo else "실제 데이터"), "->", a.out, stats)
 
 
