@@ -55,6 +55,7 @@ def test_parses_front_matter_paragraphs_and_embeds():
     ("@flow team=T1 last=0", "1 이상"),
     ("@game nth=abc", "숫자여야"),
     ("@search blue.mid=Azir games=20", "0~10"),
+    ("@team name=T1 show=gd15,foo", "알 수 없는 지표"),
 ])
 def test_bad_embeds_give_clear_errors_with_location(body, msg):
     text = "---\ntitle: t\ndate: 2026-01-01\n---\n본문\n\n" + body + "\n"
@@ -124,3 +125,8 @@ def test_team_filters_for_search_and_flow():
     assert c["blocks"][0]["team"] == "Gen.G" and c["blocks"][0]["board"]["blue"] == {"mid": "Orianna"}
     assert c["blocks"][1] == {"type": "flow", "last": 1, "team": "Gen.G"}
     assert c["blocks"][2] == {"type": "flow", "last": 3, "team": "T1"}
+
+
+def test_team_show_picks_metrics():
+    c = parse_column('---\ntitle: t\ndate: 2026-01-01\n---\n@team name="Gen.G" show=gd15,barS', "x")
+    assert c["blocks"][0] == {"type": "team", "name": "Gen.G", "show": ["gd15", "barS"]}

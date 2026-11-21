@@ -739,6 +739,35 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
 .brk.good{background:var(--win-soft)!important;color:var(--win)}.brk.bad{background:var(--loss-soft)!important;color:var(--loss)}
 .dbox figcaption .eb{vertical-align:-5px;margin-right:4px}
 @media (max-width:640px){.br{grid-template-columns:84px minmax(0,1fr) 70px 34px;gap:8px;font-size:.8rem}.bsec{padding:2px 10px 8px}}
+/* @team v3: 큰 숫자 카드(Opta) + 팀 값 | 리그 평균 표(dpm), 차이가 클 때만 색 */
+.tm-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin:0 0 14px}
+.tm-card{border:1px solid var(--line);border-radius:10px;padding:10px 14px 12px;border-top:3px solid var(--line);background:var(--surface)}
+.tm-card.good{border-top-color:var(--win)}.tm-card.bad{border-top-color:var(--loss)}
+.tm-card small{display:block;font-size:.74rem;font-weight:700;color:var(--muted);letter-spacing:.02em}
+.tm-val{display:flex;align-items:baseline;gap:6px;margin:4px 0 2px}
+.tm-val b{font-size:1.75rem;font-weight:900;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.tm-card.good .tm-val b{color:var(--win)}.tm-card.bad .tm-val b{color:var(--loss)}
+.tm-val em{font-style:normal;font-size:.8rem;font-weight:800;color:var(--muted)}
+.tm-card>span{font-size:.74rem;color:var(--faint)}
+.tm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tm-sec{border:1px solid var(--line);border-radius:10px;padding:4px 12px 6px}
+.tm-row{display:grid;grid-template-columns:36px minmax(0,1fr) 64px 64px;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:.86rem}
+.tm-row.tm-head{border-top:0;font-size:.72rem;color:var(--faint);font-weight:700;padding:8px 0 4px}
+.tm-row.tm-head .tm-l{color:var(--fg);font-size:.8rem}
+.tm-rk{font-size:.72rem;font-weight:800;text-align:center;border-radius:6px;padding:2px 0;background:var(--surface-2);color:var(--muted)}
+.tm-rk.good{background:var(--win-soft);color:var(--win)}.tm-rk.bad{background:var(--loss-soft);color:var(--loss)}
+.tm-rk.tm-first{box-shadow:inset 0 0 0 1.5px var(--fg);color:var(--fg)}
+.tm-row.tm-head .tm-rk{background:none}
+.tm-v,.tm-a{text-align:right;font-variant-numeric:tabular-nums}
+.tm-v b{font-weight:800}.tm-a b{font-weight:500;color:var(--muted)}
+.tm-row .tm-hi{padding:2px 7px;border-radius:6px}
+.tm-row .tm-hi.good{background:var(--win-soft);color:var(--win)}.tm-row .tm-hi.bad{background:var(--loss-soft);color:var(--loss)}
+.tm-dim{opacity:.55}
+.dbox p.tm-few{display:inline-block;margin:0 0 10px;font-size:.76rem;font-weight:700;color:var(--warn);background:var(--warn-soft);padding:3px 10px;border-radius:99px}
+@media (max-width:760px){.tm-grid{grid-template-columns:minmax(0,1fr)}}
+.tm-l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tm-head .tm-l small{font-weight:500;color:var(--faint);margin-left:4px}
+@media (max-width:420px){.tm-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.tm-val b{font-size:1.4rem}.tm-row{grid-template-columns:34px minmax(0,1fr) 62px 62px;font-size:.8rem}}
 </style>
 
 <div class="wrap">

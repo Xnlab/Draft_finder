@@ -1105,49 +1105,50 @@ function gameWidget(b){
   const g=pickGame(b);if(!g)return '';
   return dbox(`${esc(tn(g.bt))} vs ${esc(tn(g.rt))}`,`${esc(g.lg)} · ${fmtDate(g.d)} · ${g.s}세트`,`<div class="games one">${gameStripHtml(g)}</div>`,'');
 }
-/* @team: 레이더(팀 vs 리그 평균) + 지표마다 리그 평균 대비 가로 막대. 묶음은 시간 기준(초반 / 경기 전체) */
+/* @team: 지표 묶음은 시간 기준(초반 / 경기 전체). 이 사이트가 정한 묶음이고 공인 분류가 아니다 */
 const EARLY=[['gd15','15분 골드 차이',fmtGd,1],['xpd15','15분 경험치 차이',v=>(v>0?'+':v<0?'−':'')+Math.abs(Math.round(v)),1],['csd15','15분 CS 차이',fs1,1],['fb','첫 킬',fp,1],
   ['ft','첫 포탑',fp,1],['plt','포탑 방패',f1,1],['grub','공허 유충',f1,1],['her','전령',f2,1]];
 const WHOLE=[['gpm','분당 골드',f0,1],['cspm','분당 CS',f1,1],['dpm','분당 피해량',f0,1],['vspm','분당 시야 점수',f2,1],['wcpm','분당 와드 제거',f2,1],
   ['k','경기당 킬',f1,1],['d','경기당 데스',f1,-1],['drgS','용 획득 비율',fp,1],['barS','바론 획득 비율',fp,1],['ahead','15분 우위 시 승률',fp,1]];
-const RAX=[['gd15','15분 골드',1],['xpd15','15분 경험치',1],['csd15','15분 CS',1],['fb','첫 킬',1],['ft','첫 포탑',1],['plt','포탑 방패',1],['grub','유충',1],['vspm','시야',1]];
 function leagueVals(lg,key){return leagueMetrics(lg).map(x=>({t:x.t,v:x.m[key]})).filter(x=>x.v!=null)}
 const median=a=>{const s=[...a].sort((x,y)=>x-y),n=s.length;return n?(n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2):null};   // 순위와 막대 방향이 어긋나지 않게 가운데는 중간값
-function radarCmp(t,m){
-  const lg=t.league,N=RAX.length,W=340,H=290,cx=170,cy=145,R=96;
-  const norm=(k,dir,v)=>{const vs=leagueVals(lg,k).map(x=>x.v),lo=Math.min(...vs),hi=Math.max(...vs);if(v==null||hi===lo)return .5;const r=(v-lo)/(hi-lo);return .08+.92*(dir>0?r:1-r)};
-  const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/N;return[cx+Math.cos(a)*R*r,cy+Math.sin(a)*R*r]};
-  const poly=rs=>rs.map((r,i)=>pt(i,r).map(v=>v.toFixed(1)).join(',')).join(' ');
-  const me=RAX.map(([k,,d])=>norm(k,d,m[k])),av=RAX.map(([k,,d])=>norm(k,d,median(leagueVals(lg,k).map(x=>x.v))));
-  const rings=[.25,.5,.75,1].map(r=>`<polygon points="${poly(RAX.map(()=>r))}" class="rg"/>`).join('');
-  const spokes=RAX.map((_,i)=>{const[x,y]=pt(i,1);return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="rg"/>`}).join('');
-  const labels=RAX.map(([,l],i)=>{const[x,y]=pt(i,1.18),c=Math.cos(-Math.PI/2+i*2*Math.PI/N);return `<text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="${Math.abs(c)<.2?'middle':c>0?'start':'end'}">${l}</text>`}).join('');
-  return `<div class="rwrap"><svg class="radar" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(tn(t.name))}와 ${esc(lg)} 평균 비교">${rings}${spokes}<polygon points="${poly(av)}" class="ra"/><polygon points="${poly(me)}" class="rv"/>${labels}</svg>
-    <div class="rleg"><span><i class="me"></i>${esc(tn(t.name))}</span><span><i class="av"></i>${esc(lg)} 중간값</span><span class="muted">축마다 리그 최저–최고 기준</span></div></div>`;
+/* 지표 하나를 리그와 비교: 값, 리그 평균, 순위, 차이가 큰가(리그 폭의 1/4 이상) */
+function metricCmp(t,m,[k,label,fmt,dir]){
+  const lg=t.league,vs=leagueVals(lg,k).map(x=>x.v),v=m[k];
+  if(v==null||vs.length<4)return null;
+  const a=avg(vs),lo=Math.min(...vs),hi=Math.max(...vs),rk=rankOf(lg,k,dir,v);
+  const gap=(v-a)*dir,big=hi>lo&&Math.abs(v-a)>=(hi-lo)/4;
+  return{k,label,fmt,dir,v,a,rk,gap,big,tone:big?(gap>0?'good':'bad'):'',score:hi>lo?Math.abs(v-a)/(hi-lo):0};
 }
-/* 지표 한 줄: 이름 | 리그 평균 대비 막대 | 값(평균) | 순위 */
-function barRows(t,m,defs){
-  const lg=t.league;
-  return defs.filter(([k])=>m[k]!=null).map(([k,label,fmt,dir])=>{
-    const vs=leagueVals(lg,k).map(x=>x.v),a=median(vs),far=Math.max(...vs.map(v=>Math.abs(v-a)))||1;
-    const z=(m[k]-a)/far*dir,w=Math.min(Math.abs(z),1)*50,rk=rankOf(lg,k,dir,m[k]),n=rk?rk.n:vs.length,third=Math.ceil(n/3);
-    const tone=Math.abs(z)<.08?'eq':z>0?'up':'dn',rt=!rk?'':rk.r<=third?'good':rk.r>n-third?'bad':'';
-    return `<div class="br"><span class="bl3">${label}</span>
-      <div class="bt"><i class="${tone}" style="${z>=0?'left':'right'}:50%;width:${w.toFixed(1)}%"></i></div>
-      <span class="bv"><b>${fmt(m[k])}</b><small>중간 ${fmt(a)}</small></span><span class="brk ${rt}">${rk?rk.r+'위':''}</span></div>`;
-  }).join('');
+const ordinal=rk=>rk?`${rk.r}위`:'';
+/* 큰 숫자 카드 (Opta 팀 리더 카드 방식) */
+function leaderCard(c,lg){
+  return `<div class="tm-card ${c.tone}"><small>${c.label}</small><div class="tm-val"><b>${c.fmt(c.v)}</b><em>${ordinal(c.rk)}</em></div><span>${esc(lg)} 평균 ${c.fmt(c.a)}</span></div>`;
+}
+/* 표 한 줄 (dpm.lol 방식: 순위 배지 | 지표 | 팀 값 | 리그 평균, 차이가 클 때만 더 나은 쪽에 색 박스) */
+function cmpRow(c){
+  return `<div class="tm-row"><span class="tm-rk ${c.rk&&c.rk.r===1?'tm-first':''}">${ordinal(c.rk)}</span><span class="tm-l">${c.label}</span>
+    <span class="tm-v"><b class="${c.big&&c.gap>0?'tm-hi good':''}">${c.fmt(c.v)}</b></span><span class="tm-a"><b class="${c.big&&c.gap<0?'tm-hi bad':''}">${c.fmt(c.a)}</b></span></div>`;
 }
 function teamWidget(b){
   const t=findTeam(b.name);if(!t)return wErr(`팀을 찾을 수 없음: ${b.name}`);
   if(ST===null){loadStats();return wLoading}
   const m=ST?teamMetrics(t):null;if(!m)return wErr(`${b.name}: 지표 없음`);
-  const veil=S.spoiler&&!S.statsRevealed,nT=leagueMetrics(t.league).length;
-  const head=`<div class="br bh"><span></span><div class="bt ax"><small>← 리그 중간보다 뒤처짐</small><small>앞섬 →</small></div><span class="bv">값</span><span class="brk">순위</span></div>`;
-  return dbox(`${emblem(t.name,22)} ${esc(tn(t.name))} 팀 지표`,`${esc(t.league)} ${nT}팀 비교 · ${m.n}경기`,
-    `${radarCmp(t,m)}
-     <div class="bgrid"><section class="bsec"><p class="dlab">초반 <span>15분 전후까지</span></p>${head}${barRows(t,m,EARLY)}</section>
-     <section class="bsec"><p class="dlab">경기 전체</p>${head}${barRows(t,m,veil?WHOLE.filter(x=>x[0]!=='ahead'):WHOLE)}</section></div>`,
-    `막대: ${esc(t.league)} 중간값(가운데 순위)과의 차이, 끝 = 가장 먼 팀 · 순위: ${esc(t.league)}에서 8경기 이상 치른 ${nT}팀 중`);
+  const veil=S.spoiler&&!S.statsRevealed,lg=t.league,nT=leagueMetrics(lg).length,few=m.n<8;
+  const defs=EARLY.concat(WHOLE).filter(x=>!(veil&&x[0]==='ahead'));
+  const head=`${emblem(t.name,22)} ${esc(tn(t.name))} 팀 지표`,sub=`${esc(lg)} ${nT}팀과 비교 · ${m.n}경기`;
+  const note=`색: 리그 평균과의 차이가 리그 최고–최저 폭의 4분의 1 이상 · 순위: ${esc(lg)}에서 8경기 이상 치른 ${nT}팀 중`;
+  const fewTag=few?'<p class="tm-few">표본 부족: 8경기 미만이라 참고용</p>':'';
+  if(b.show){   // 글에 필요한 지표만 카드로
+    const cs=b.show.map(k=>defs.find(x=>x[0]===k)).filter(Boolean).map(d=>metricCmp(t,m,d)).filter(Boolean);
+    return dbox(head,sub,`${fewTag}<div class="tm-cards ${few?'tm-dim':''}">${cs.map(c=>leaderCard(c,lg)).join('')}</div>`,note);
+  }
+  const all=defs.map(d=>metricCmp(t,m,d)).filter(Boolean),stand=all.filter(c=>c.big).sort((x,y)=>y.score-x.score).slice(0,4);
+  const grp=(title,ds)=>{const rows=ds.map(d=>all.find(c=>c.k===d[0])).filter(Boolean);
+    return `<section class="tm-sec"><div class="tm-row tm-head"><span></span><span class="tm-l">${title}</span><span class="tm-v">${esc(teamStyle(t.name).short)}</span><span class="tm-a">${esc(lg)} 평균</span></div>${rows.map(cmpRow).join('')}</section>`};
+  return dbox(head,sub,
+    `${fewTag}<p class="dlab">평균과 차이가 큰 지표</p>${stand.length?`<div class="tm-cards ${few?'tm-dim':''}">${stand.map(c=>leaderCard(c,lg)).join('')}</div>`:'<p class="muted" style="margin:0 0 8px">없음 (모든 지표가 리그 평균 근처)</p>'}
+     <div class="tm-grid ${few?'tm-dim':''}">${grp('초반 <small>15분 전후</small>',EARLY)}${grp('경기 전체',WHOLE.filter(x=>!(veil&&x[0]==='ahead')))}</div>`,note);
 }
 /* @form: 최근 n경기를 한 줄씩, 15분 골드 차이 가로 막대 */
 function formWidget(b){

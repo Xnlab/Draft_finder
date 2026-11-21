@@ -20,7 +20,7 @@
     @search blue.mid=Azir red.mid=Orianna sets=late
     @series pick=longest set=4
     @game nth=40            (또는 id=게임ID)
-    @team name="Gen.G"      (팀 지표를 리그 안 순위·평균과 비교)
+    @team name="Gen.G"      (팀 지표를 리그 평균·순위와 비교. show=gd15,barS 로 고른 지표만 카드로)
     @form team="Gen.G" n=10 until=2026-11-14   (최근 n경기 15분 골드 차이와 승패)
     @flow team="Gen.G" last=1                  (그 팀의 최근 경기 흐름. id=게임ID로 경기를 지정할 수도 있다)
 
@@ -38,6 +38,9 @@ from pathlib import Path
 POSITIONS = ["top", "jng", "mid", "bot", "sup"]
 EMBEDS = {"search", "series", "game", "team", "form", "flow"}
 KINDS = {"column", "note"}
+# @team show= 에 쓸 수 있는 지표 키 (workbench/app.js의 EARLY, WHOLE과 같다)
+TEAM_METRICS = ["gd15", "xpd15", "csd15", "fb", "ft", "plt", "grub", "her",
+                "gpm", "cspm", "dpm", "vspm", "wcpm", "k", "d", "drgS", "barS", "ahead"]
 _TOKEN = re.compile(r'(\S+?)=("([^"]*)"|\S+)|(\S+)')
 SEARCH_KEYS = {"sets": {"all", "early", "late"}, "patch": {"all", "latest", "last3"}, "pos": {"any", "exact"}}
 _EMBED_LINE = re.compile(r"^@(\w+)\b(.*)$")
@@ -115,10 +118,17 @@ def _check_embed(kind: str, args: dict) -> dict:
             raise ColumnError("@series pick은 longest 또는 latest")
         return {"pick": pick, "set": _int("set", args["set"]) if "set" in args else None}
     if kind == "team":
-        _only(kind, args, {"name"})
+        _only(kind, args, {"name", "show"})
         if not args.get("name"):
             raise ColumnError('@team에는 name="팀 영문 이름"이 필요합니다')
-        return {"name": args["name"]}
+        out = {"name": args["name"]}
+        if "show" in args:
+            keys = [k for k in args["show"].split(",") if k]
+            bad = [k for k in keys if k not in TEAM_METRICS]
+            if bad or not keys:
+                raise ColumnError(f"@team show에 알 수 없는 지표 {bad} (쓸 수 있는 것: {', '.join(TEAM_METRICS)})")
+            out["show"] = keys
+        return out
     if kind == "form":
         _only(kind, args, {"team", "n", "until"})
         if not args.get("team"):
