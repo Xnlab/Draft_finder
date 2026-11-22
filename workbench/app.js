@@ -10,7 +10,7 @@ let TEAMS=[],TEAMIDX={},LDIST={};
 const S={blue:[-1,-1,-1,-1,-1],red:[-1,-1,-1,-1,-1],patch:'all',leagues:new Set(),sets:'all',pos:'any',flexOnly:false,
   tab:'full',shown:12,spoiler:false,revealed:new Set(),statsRevealed:false,detailId:null,
   series:null,sSet:0,sShown:1,sLeague:'all',sMore:24,sRevealed:new Set(),sEnd:false,
-  teams:[],tq:'',tlg:'all',fMore:12,tMore:12,persp:null,team:null,myTeam:null,changing:false,ttab:'ov',cl:'all',cpt:'all',cr:'all',cn:20};
+  teams:[],tq:'',tlg:'all',fMore:12,tMore:12,persp:null,team:null,myTeam:null,changing:false,pq:'',plg:'LCK',pl:'all',ppt:'all',pcn:15,pp:null,ttab:'ov',cl:'all',cpt:'all',cr:'all',cn:20};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtGd=v=>v==null?'-':(v>0?'+':v<0?'−':'')+Math.abs(Math.round(v)).toLocaleString('ko-KR');
@@ -769,6 +769,7 @@ function loadStats(){
     if(!$('#view-team').hidden)renderTeam(S.team);
     if(!$('#view-teams').hidden)renderTeams();
     if(!$('#view-column').hidden)renderColumn(S.col);
+    if(!$('#view-player').hidden)renderPlayer(S.pp);
   });
   return STP;
 }
@@ -830,7 +831,7 @@ function playerTable(t,ros){
   const pct=v=>v==null?'-':(v*100).toFixed(1)+'%';
   const rows=ros.map(p=>{
     if(!p)return '';const a=playerAgg(t,p);if(!a.games)return '';
-    return `<tr><td><span class="rtag" style="color:${ROLE_COLORS[ROLES[p.role]]}">${ROLE_KO[ROLES[p.role]]}</span></td><td><b>${esc(p.name)}</b></td><td class="num">${a.games}</td>
+    return `<tr><td><span class="rtag" style="color:${ROLE_COLORS[ROLES[p.role]]}">${ROLE_KO[ROLES[p.role]]}</span></td><td><b>${pLink(p.name)}</b></td><td class="num">${a.games}</td>
       <td class="num">${a.kda!=null?a.kda.toFixed(1):'-'}</td><td class="num">${a.kp!=null?Math.round(a.kp*100)+'%':'-'}</td>
       <td class="num">${pct(a.dmg)}</td><td class="num">${pct(a.gsh)}</td><td class="num">${a.vspm!=null?a.vspm.toFixed(2):'-'}</td><td class="num">${a.cspm!=null?a.cspm.toFixed(1):'-'}</td>
       <td><div class="chs">${a.chs.slice(0,10).map(([c,n])=>`<span class="pc" title="${esc(CH[+c].ko)} ${n}회"><img src="${CH[+c].icon}" alt="${esc(CH[+c].ko)}" width="28" height="28"><i>${n}</i></span>`).join('')}</div></td></tr>`;
@@ -1031,7 +1032,7 @@ function playerCard2(p,t){
   const st=teamStyle(t.name),ini=/^[\x00-\x7f]+$/.test(p.name)?p.name.slice(0,2).toUpperCase():p.name.slice(0,2),a=playerAgg(t,p),r=ROLES[p.role];
   return `<div class="card pcard2"><span class="prole" style="color:${ROLE_COLORS[r]}">${ROLE_KO[r]}</span>
     <div class="av2" style="--c:${st.c};--c2:${st.c2};--f:${fgOn(st.c)}"><span>${esc(ini)}</span></div>
-    <b title="${esc(p.name)}">${esc(p.name)}</b><small>${esc(tn(t.name))} ${ROLE_KO[r]}</small>
+    <b title="${esc(p.name)}">${pLink(p.name)}</b><small>${esc(tn(t.name))} ${ROLE_KO[r]}</small>
     <div class="pch">${a.chs.slice(0,3).map(([c,n])=>`<span class="pc" title="${esc(CH[+c].ko)} ${n}회"><img src="${CH[+c].icon}" alt="${esc(CH[+c].ko)}" width="34" height="34"></span>`).join('')}</div>
     <div class="pfoot"><div><small>경기</small><b>${a.games}</b></div><div><small>KDA</small><b>${a.kda!=null?a.kda.toFixed(1):'-'}</b></div><div><small>킬 관여</small><b>${a.kp!=null?Math.round(a.kp*100)+'%':'-'}</b></div></div></div>`;
 }
@@ -1601,20 +1602,97 @@ document.addEventListener('click',async e=>{
 });
 window.addEventListener('beforeunload',()=>{if(S.wdirty)wSave()});
 
+/* ---------- 선수: 이름으로 묶는다 (데이터에 선수 ID가 없어 이적·동명이인은 같은 이름이면 합쳐진다) ---------- */
+let PLAYERS=null;
+function buildPlayers(){
+  if(PLAYERS)return PLAYERS;
+  const m=new Map();
+  for(const g of G)for(const code of['b','r']){
+    const pl=g[code==='b'?'bp':'rp'];if(!pl)continue;
+    pl.forEach((name,i)=>{if(!name)return;let p=m.get(name);if(!p){p={name,apps:[]};m.set(name,p)}p.apps.push({g,code,i})});
+  }
+  PLAYERS=m;return m;
+}
+const pUrl=name=>'#player-'+encodeURIComponent(name);
+const pLink=name=>`<a class="plink" href="${pUrl(name)}">${esc(name)}</a>`;
+function topOf(o){return Object.entries(o).sort((a,b)=>b[1]-a[1])}
+function renderPlayers(){
+  const box=$('#players-box');if(!box)return;
+  const M=buildPlayers(),q=(S.pq||'').trim().toLowerCase();
+  let list=[...M.values()];
+  if(q)list=list.filter(p=>p.name.toLowerCase().includes(q)||p.apps.some(a=>tn(a.code==='b'?a.g.bt:a.g.rt).toLowerCase().includes(q)));
+  if(!q&&S.plg!=='all')list=list.filter(p=>p.apps.some(a=>a.g.lg===S.plg));
+  list.sort((a,b)=>b.apps.length-a.apps.length);
+  const total=list.length;list=list.slice(0,60);
+  const lgs=['LCK','LPL','LEC','LCS','LCP','LCKC'].filter(l=>G.some(g=>g.lg===l));
+  const card=p=>{const tc={},rc=[0,0,0,0,0];p.apps.forEach(a=>{const t=a.code==='b'?a.g.bt:a.g.rt;tc[t]=(tc[t]||0)+1;rc[a.i]++});
+    const team=topOf(tc)[0][0],r=rc.indexOf(Math.max(...rc));
+    return `<a class="card pitem" href="${pUrl(p.name)}">${emblem(team,28)}<span class="pi-t"><b>${esc(p.name)}</b><small>${esc(tn(team))}</small></span><span class="rtag" style="color:${ROLE_COLORS[ROLES[r]]}">${ROLE_KO[ROLES[r]]}</span><span class="pi-n">${p.apps.length}</span></a>`};
+  box.innerHTML=`<section class="card cfil"><input class="q" id="player-q" type="search" placeholder="선수 또는 팀 이름" autocomplete="off" value="${esc(S.pq||'')}" style="width:100%;margin:0 0 10px">
+      <div class="tools" style="margin:0"><button class="chip ${S.plg==='all'?'on':''}" type="button" data-plg="all">전체</button>${lgs.map(l=>`<button class="chip ${S.plg===l?'on':''}" type="button" data-plg="${esc(l)}">${esc(l)}</button>`).join('')}</div></section>
+    <div class="plist">${list.map(card).join('')||'<p class="muted">찾는 선수가 없어요</p>'}</div>${total>60?`<p class="muted" style="font-size:.82rem">${total-60}명 더 있어요. 이름으로 찾아 주세요.</p>`:''}`;
+}
+function renderPlayer(name){
+  const box=$('#player-box');if(!box)return;
+  const p=buildPlayers().get(name);
+  if(!p){box.innerHTML=`<a class="chip" href="#players">← 선수</a><div class="card empty-state" style="margin-top:12px"><h2>찾는 선수가 없어요</h2></div>`;return}
+  if(ST===null)loadStats();
+  if(S.pp!==name){S.pp=name;S.pl='all';S.ppt='all';S.pcn=15}
+  // 대회별 요약 (필터와 상관없이 전체)
+  const byLg={};p.apps.forEach(a=>{const o=byLg[a.g.lg]||(byLg[a.g.lg]={n:0,w:0,ch:{},last:''});o.n++;if(a.g.w===a.code)o.w++;const c=a.g[a.code][a.i];if(c>=0)o.ch[c]=(o.ch[c]||0)+1;if(a.g.d>o.last)o.last=a.g.d});
+  const lgRows=Object.entries(byLg).sort((a,b)=>b[1].last<a[1].last?-1:1);
+  const apps=p.apps.filter(a=>(S.pl==='all'||a.g.lg===S.pl)&&(S.ppt==='all'||a.g.p===S.ppt));
+  const tc={},rc=[0,0,0,0,0];p.apps.forEach(a=>{const t=a.code==='b'?a.g.bt:a.g.rt;tc[t]=(tc[t]||0)+1;rc[a.i]++});
+  const teams=topOf(tc),r=rc.indexOf(Math.max(...rc)),w=apps.filter(a=>a.g.w===a.code).length;
+  // 챔피언별
+  const P=(a,k)=>a.g._st?a.g._st[a.code==='b'?2:3][a.i][PF[k]]:null;
+  const ch={};
+  for(const a of apps){const c=a.g[a.code][a.i];if(c<0)continue;const o=ch[c]||(ch[c]={n:0,w:0,k:0,d:0,as:0,st:0});o.n++;if(a.g.w===a.code)o.w++;if(a.g._st){o.st++;o.k+=P(a,'k')||0;o.d+=P(a,'d')||0;o.as+=P(a,'a')||0}}
+  const rows=Object.entries(ch).sort((a,b)=>b[1].n-a[1].n||b[1].w-a[1].w);
+  const kda=o=>o.st?((o.k+o.as)/Math.max(o.d,1)).toFixed(1):'-';
+  const tot=rows.reduce((t,[,o])=>({k:t.k+o.k,d:t.d+o.d,as:t.as+o.as,st:t.st+o.st}),{k:0,d:0,as:0,st:0});
+  const plist=[...new Set(p.apps.filter(a=>S.pl==='all'||a.g.lg===S.pl).map(a=>a.g.p))].sort((a,b)=>{const A=pKey(a),B=pKey(b);return B[0]-A[0]||B[1]-A[1]});
+  const lgChips=`<button class="chip ${S.pl==='all'?'on':''}" type="button" data-pl="all">전체 대회</button>${lgRows.map(([l,o])=>`<button class="chip ${S.pl===l?'on':''}" type="button" data-pl="${esc(l)}">${esc(lgLabel(l))} ${o.n}</button>`).join('')}`;
+  const patchSel=`<select class="sel" id="ppt" aria-label="패치"><option value="all">전체 패치</option>${plist.map(x=>`<option value="${esc(x)}" ${S.ppt===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
+  const chRows=rows.slice(0,S.pcn).map(([c,o],i)=>{const wr=o.w/o.n;return `<div class="wr-row pc-row"><span class="rk">${i+1}</span><span>${nameCellBtn(+c)}</span><span class="num"><b>${o.n}</b></span>
+      <div class="wr-bar"><i class="${wr>=.5?'up':'dn'}" style="width:${(wr*100).toFixed(1)}%"></i><em></em></div>
+      <span class="wr-v"><b>${Math.round(wr*100)}%</b><small>${o.w}승 ${o.n-o.w}패 · KDA ${kda(o)}</small></span></div>`}).join('');
+  box.innerHTML=`<a class="chip" href="#players">← 선수</a>
+    <div class="ph-top">${emblem(teams[0][0],44)}<div><h1>${esc(p.name)}</h1><div class="muted">${teams.map(([t,n])=>`${esc(tn(t))} ${n}`).join(' · ')} · <span style="color:${ROLE_COLORS[ROLES[r]]};font-weight:800">${ROLE_KO[ROLES[r]]}</span></div></div>
+      <div class="ph-facts"><div><b>${apps.length}</b><small>경기</small></div><div><b>${w}승 ${apps.length-w}패</b><small>${apps.length?Math.round(w/apps.length*100):0}%</small></div><div><b>${tot.st?((tot.k+tot.as)/Math.max(tot.d,1)).toFixed(2):'-'}</b><small>KDA</small></div><div><b>${rows.length}</b><small>챔피언</small></div></div></div>
+    <section class="card ctab" style="margin-bottom:16px"><h2>대회별</h2><table class="ptable ctbl"><colgroup><col style="width:150px"><col style="width:70px"><col style="width:110px"><col style="width:70px"><col></colgroup>
+      <thead><tr><th>대회</th><th class="num">경기</th><th class="num">승패</th><th class="num">승률</th><th>많이 쓴 챔피언</th></tr></thead><tbody>${lgRows.map(([l,o])=>`<tr><td><span class="slg">${leagueBadge(l,18)} ${esc(lgLabel(l))}</span></td><td class="num"><b>${o.n}</b></td><td class="num">${o.w}승 ${o.n-o.w}패</td><td class="num">${Math.round(o.w/o.n*100)}%</td><td><div class="chs">${topOf(o.ch).slice(0,6).map(([c,n])=>`<span class="pc" title="${esc(CH[+c].ko)} ${n}회"><img src="${CH[+c].icon}" alt="${esc(CH[+c].ko)}" width="26" height="26"><i>${n}</i></span>`).join('')}</div></td></tr>`).join('')}</tbody></table></section>
+    <div class="chead"><div class="tools" style="margin:0">${lgChips}</div><span class="chead-sp"></span>${patchSel}</div>
+    <section class="card ctab"><h2>챔피언</h2><div class="wr-head pc-row"><span>#</span><span>챔피언</span><span class="num">경기</span><div class="wr-ax"><small>0%</small><small>50%</small><small>100%</small></div><span class="wr-v">승률</span></div>${chRows||'<p class="muted">조건에 맞는 경기가 없어요</p>'}</section>
+    ${rows.length>S.pcn?`<button class="more" type="button" data-pmore>더 보기</button>`:''}`;
+}
+const nameCellBtn=c=>`<button type="button" class="cname" data-chsearch="${c}" title="밴픽 찾기에서 ${esc(CH[c].ko)} 경기 보기"><img src="${CH[c].icon}" alt="" width="32" height="32"><span>${esc(CH[c].ko)}</span></button>`;
+document.addEventListener('click',e=>{
+  const t=e.target;if(!t.closest)return;
+  const pl=t.closest('[data-pl]');if(pl){S.pl=pl.dataset.pl;S.ppt='all';S.pcn=15;renderPlayer(S.pp);return}
+  const plg=t.closest('[data-plg]');if(plg){S.plg=plg.dataset.plg;renderPlayers();return}
+  if(t.closest('[data-pmore]')){S.pcn+=15;renderPlayer(S.pp);return}
+});
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='ppt'){S.ppt=e.target.value;renderPlayer(S.pp)}});
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='player-q'){S.pq=e.target.value;const pos=e.target.selectionStart;renderPlayers();const q=$('#player-q');q.focus();q.setSelectionRange(pos,pos)}});
+
 /* ---------- 화면 전환 + 시작 ---------- */
 function route(){
   const h=location.hash,mc=/^#column-(\d+)$/.exec(h),mt=/^#team-(\d+)$/.exec(h),mw=/^#write-([\w-]+)$/.exec(h);
+  const mp=/^#player-(.+)$/.exec(h);
   if(!$('#view-write').hidden&&S.wdirty&&!mw)wSave();
-  const v=mw?'write':mc?'column':mt?'team':h==='#columns'?'columns':h==='#series'?'series':h==='#search'?'search':h==='#champs'?'champs':'teams';
-  for(const k of['teams','team','champs','search','series','columns','column','write'])$('#view-'+k).hidden=k!==v;
-  const nav=v==='column'||v==='write'?'columns':v==='team'?'teams':v;
-  for(const k of['teams','champs','search','series','columns'])$('#nav-'+k).setAttribute('aria-current',k===nav?'page':'false');
+  const v=mp?'player':h==='#players'?'players':mw?'write':mc?'column':mt?'team':h==='#columns'?'columns':h==='#series'?'series':h==='#search'?'search':h==='#champs'?'champs':'teams';
+  for(const k of['teams','team','champs','search','series','columns','column','write','players','player'])$('#view-'+k).hidden=k!==v;
+  const nav=v==='player'?'players':v==='column'||v==='write'?'columns':v==='team'?'teams':v;
+  for(const k of['teams','players','champs','search','series','columns'])$('#nav-'+k).setAttribute('aria-current',k===nav?'page':'false');
   if(v==='champs')renderChamps();
   if(v==='series')renderSeries();
   if(v==='column')renderColumn(+mc[1]);
   if(v==='teams')renderTeams();
   if(v==='team')renderTeam(+mt[1]);
   if(v==='columns')renderColumns();
+  if(v==='players')renderPlayers();
+  if(v==='player')renderPlayer(decodeURIComponent(mp[1]));
   if(v==='write'&&(!S.w||S.w.id!==mw[1]))renderWrite(mw[1]);
 }
 window.addEventListener('hashchange',route);
