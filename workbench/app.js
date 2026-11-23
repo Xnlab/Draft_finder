@@ -363,7 +363,7 @@ function openSeries(sid,setNo){
   const s=SERIES.get(sid);if(!s)return;
   closeDetail();
   S.series=sid;S.sEnd=false;
-  S.sShown=setNo||1;S.sSet=seriesVeil(s)?S.sShown:(setNo||s.k);
+  S.dStep=20;S.sShown=setNo||1;S.sSet=seriesVeil(s)?S.sShown:(setNo||s.k);
   location.hash='series';route();renderSeries();window.scrollTo({top:0});
 }
 function renderSeries(){
@@ -421,16 +421,12 @@ function seriesDetail(s){
   const tabs=Array.from({length:maxShown},(_,i)=>i+1).map(i=>`<button role="tab" type="button" data-sset-tab="${i}" aria-selected="${n===i}">${i}세트</button>`).join('')
     +(sp?`<button class="chip" type="button" data-snext>다음 세트 열기 ▸</button>`:'');
   const score=sp?`<button class="btn" type="button" data-sreveal>결과 보기</button>`:`<b>${esc(s.A)} ${s.wA} : ${s.wB} ${esc(s.B)}</b>`;
-  /* 이번 세트: 진영별 밴 → 픽을 한눈에 */
   const veil=hidden(g.id)&&sp;
-  const side=code=>{
-    const name=code==='b'?g.bt:g.rt,won=!veil&&g.w===code;
-    const bans=g[code==='b'?'bb':'rb'].map(c=>`<span class="sd-ban" title="밴: ${esc(CH[c].ko)}"><img src="${CH[c].icon}" alt="${esc(CH[c].ko)}" width="30" height="30"></span>`).join('');
-    const picks=g[code].map((c,i)=>c<0?`<div class="sd-pk"><span class="tph">?</span><small>${ROLE_KO[ROLES[i]]}</small></div>`:`<div class="sd-pk" title="${esc(CH[c].ko)}"><img src="${CH[c].icon}" alt="" width="44" height="44"><small>${esc(CH[c].ko)}</small></div>`).join('');
-    return `<div class="sd-side ${code} ${won?'won':''}"><div class="sd-name"><b>${esc(tn(name))}</b><small>${code==='b'?'블루':'레드'}</small>${won?'<em>승</em>':''}</div>
-      <div class="sd-bans"><span class="sd-lab">밴</span>${bans}</div><div class="sd-picks">${picks}</div></div>`;
-  };
-  const setCard=`<section class="card sd" data-open="${g.id}"><div class="gh"><span class="lg">${n}세트</span><span>${fmtDate(g.d)} · 패치 ${esc(g.p)}</span></div>${side('b')}${side('r')}</section>`;
+  const step=S.dStep||20,{html:board,exact}=draftBoard(g,{upto:step,veil,last:true});
+  const stepLab=step>=20?'전체':`${step}/20 · ${step<=6?'1페이즈 밴':step<=12?'1페이즈 픽':step<=16?'2페이즈 밴':'2페이즈 픽'}`;
+  const setCard=`<section class="card sd"><div class="gh"><span class="lg">${n}세트</span><span>${fmtDate(g.d)} · 패치 ${esc(g.p)}</span>
+    <span class="dstep"><button class="chip" type="button" data-dstep="0" ${step<=1?'disabled':''}>처음</button><button class="chip" type="button" data-dstep="-1" ${step<=1?'disabled':''} aria-label="이전 선택">◀</button><b>${stepLab}</b><button class="chip" type="button" data-dstep="1" ${step>=20?'disabled':''} aria-label="다음 선택">▶</button><button class="chip" type="button" data-dstep="20" ${step>=20?'disabled':''}>전체</button><button class="chip" type="button" data-open="${g.id}">경기 상세</button></span></div>
+    ${board}${exact?'':'<p class="muted" style="font-size:.75rem;margin:8px 0 0">픽 순서 정보가 없어 포지션 순서로 표시</p>'}</section>`;
   const banned=new Set(g.bb.concat(g.rb));
   /* 챔피언 풀: 이번 세트에 소진된 챔피언은 색 그대로 + 세트 번호 표시, 앞 세트에 소진된 챔피언은 흐리게 */
   const pool=ROLES.map(r=>{
@@ -1149,6 +1145,13 @@ const DRAFT_SEQ=(()=>{const q=[];
   return q.map((x,n)=>({...x,step:n+1}))})();
 function draftWidget(b){
   const g=draftGame(b);if(!g)return wErr(b.teams?`${b.teams.join(' vs ')} ${b.set}세트 경기를 찾을 수 없음`:'경기를 찾을 수 없음');
+  const upto=b.upto||20,{html,exact}=draftBoard(g,{upto,hl:b.hl});
+  const sub=`${esc(g.lg)} · ${fmtDate(g.d)} · 패치 ${esc(g.p)}${upto>=20?'':` · ${upto}번째 선택까지`}`;
+  return dbox(`${esc(dtn(g.bt))} vs ${esc(dtn(g.rt))} · ${g.s}세트 밴픽`,sub,html,exact?'숫자: 전체 픽 순서':'픽 순서 정보가 없어 포지션 순서로 표시');
+}
+/* 밴픽 보드 본문 (칼럼 @draft와 피어리스 복기가 함께 쓴다). veil=결과 숨김 */
+function draftBoard(g,o){
+  const b={upto:o.upto,hl:o.hl};
   const F=g.fp||'b',side=t=>t==='F'?F:(F==='b'?'r':'b');
   const order={b:g.bo&&g.bo.length===5?g.bo:g.b,r:g.ro&&g.ro.length===5?g.ro:g.r};
   const exact=g.bo&&g.bo.length===5&&g.ro&&g.ro.length===5;
@@ -1160,11 +1163,11 @@ function draftWidget(b){
   const roleOf=(sd,c)=>{const i=g[sd].indexOf(c);return i>=0?ROLE_KO[ROLES[i]]:''};
   const cell=(sd,x)=>{
     if(!x.show)return `<div class="dr-c ${x.k} empty"><span class="dr-i"></span><small>${x.k==='ban'?'밴':x.pn+'픽'}</small></div>`;
-    const ch=CH[x.c],h=hl.has(x.c)?' hl':'';
+    const ch=CH[x.c],h=hl.has(x.c)||(o.last&&upto<20&&x.step===upto)?' hl':'';
     return `<div class="dr-c ${x.k}${h}" title="${esc(ch.ko)}"><span class="dr-i"><img src="${ch.icon}" alt="" width="${x.k==='ban'?34:46}" height="${x.k==='ban'?34:46}">${x.k==='pick'?`<em>${x.pn}</em>`:''}</span><b>${esc(ch.ko)}</b><small>${x.k==='ban'?'밴':roleOf(sd,x.c)}</small></div>`;
   };
   const row=(ph,k,label)=>`<div class="dr-row ${k}"><span class="dr-lab">${label}</span>${['b','r'].map(sd=>`<div class="dr-cells ${sd}">${cells[sd][k].filter(x=>x.ph===ph).map(x=>cell(sd,x)).join('')}</div>`).join('')}</div>`;
-  const done=upto>=20,won=sd=>done&&g.w===sd;
+  const done=upto>=20,won=sd=>done&&!o.veil&&g.w===sd;
   const head=sd=>{const name=sd==='b'?g.bt:g.rt;return `<div class="dr-team ${sd}">${emblem(name,22)}<b>${esc(dtn(name))}</b><small>${sd==='b'?'블루':'레드'}${F===sd?' · 선픽':''}</small>${won(sd)?'<em>승</em>':''}</div>`};
   // 피어리스: 이 세트 전에 두 팀이 이미 쓴 챔피언
   const s=g.sid!=null?SERIES.get(g.sid):null,prev=s?s.games.filter(x=>x.s<g.s):[];
@@ -1172,9 +1175,7 @@ function draftWidget(b){
   const prevHtml=prev.length?`<div class="dr-prev"><span class="dr-lab">${prev.length===1?'1세트':`1~${prev.length}세트`} 소진</span>${['b','r'].map(sd=>`<div class="dr-used ${sd}">${used(sd==='b'?g.bt:g.rt).map(c=>`<span class="dr-u${hl.has(c)?' hl':''}" title="${esc(CH[c].ko)}"><img src="${CH[c].icon}" alt="${esc(CH[c].ko)}" width="26" height="26"></span>`).join('')}</div>`).join('')}</div>`:'';
   const body=`<div class="drb"><div class="dr-row dr-heads"><span class="dr-lab"></span>${head('b')}${head('r')}</div>${prevHtml}
     ${row(1,'ban','1페이즈 밴')}${row(1,'pick','1페이즈 픽')}${row(2,'ban','2페이즈 밴')}${row(2,'pick','2페이즈 픽')}</div>`;
-  const sub=`${esc(g.lg)} · ${fmtDate(g.d)} · 패치 ${esc(g.p)}${done?'':` · ${upto}번째 선택까지`}`;
-  const note=exact?'숫자: 전체 픽 순서':'픽 순서 정보가 없어 포지션 순서로 표시';
-  return dbox(`${esc(dtn(g.bt))} vs ${esc(dtn(g.rt))} · ${g.s}세트 밴픽`,sub,body,note);
+  return{html:body,exact};
 }
 function gameWidget(b){
   const g=pickGame(b);if(!g)return '';
@@ -1408,7 +1409,8 @@ document.addEventListener('click',e=>{
   if(t.closest('[data-sback]')){S.series=null;renderSeries();window.scrollTo({top:0});return}
   const sl=t.closest('[data-sleague]');if(sl){S.sLeague=sl.dataset.sleague;S.sMore=24;renderSeries();return}
   if(t.closest('[data-smore]')){S.sMore+=24;renderSeries();return}
-  const st=t.closest('[data-sset-tab]');if(st){S.sSet=+st.dataset.ssetTab;S.sEnd=false;renderSeries();return}
+  const st=t.closest('[data-sset-tab]');if(st){S.sSet=+st.dataset.ssetTab;S.sEnd=false;S.dStep=20;renderSeries();return}
+  const ds=t.closest('[data-dstep]');if(ds){const v=+ds.dataset.dstep,cur=S.dStep||20;S.dStep=v===0?1:v===20?20:Math.min(20,Math.max(1,(cur>=20&&v<0?20:cur)+v));renderSeries();return}
   if(t.closest('[data-snext]')){
     const s=SERIES.get(S.series);
     if(S.sShown<s.k){S.sShown++;S.sSet=S.sShown;S.sEnd=false}else{S.sEnd=true;S.sRevealed.add(s.id)}
