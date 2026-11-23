@@ -40,6 +40,11 @@ TEAM_STATS = {
 PLAYER_STATS = {
     "k": "kills", "d": "deaths", "a": "assists", "dmg": "damageshare", "gsh": "earnedgoldshare",
     "vspm": "vspm", "cspm": "cspm", "dpm": "dpm", "csd15": "csdiffat15",
+    # 스타일: 15분 시점(골드·경험치 차이, 킬·어시스트·데스), 첫 킬 관여, 받은·경감한 피해, 시야, 상대 정글 몬스터, 포탑 방패
+    "gd15": "golddiffat15", "xpd15": "xpdiffat15", "k15": "killsat15", "a15": "assistsat15", "d15": "deathsat15",
+    "fbk": "firstbloodkill", "fba": "firstbloodassist", "fbv": "firstbloodvictim",
+    "dtpm": "damagetakenperminute", "dmpm": "damagemitigatedperminute", "wpm": "wpm", "wcpm": "wcpm",
+    "cwb": "controlwardsbought", "mej": "monsterkillsenemyjungle", "plt": "turretplates",
 }
 NEEDED += sorted((set(TEAM_STATS.values()) | set(PLAYER_STATS.values())) - set(NEEDED))
 SERIES_GAP_HOURS = 36  # 같은 시리즈로 볼 세트 사이의 최대 간격

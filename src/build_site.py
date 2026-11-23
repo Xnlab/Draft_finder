@@ -119,7 +119,9 @@ TEAM_FIELDS = [("k", None), ("d", None), ("fb", None), ("drg", None), ("inf", No
                ("csd10", None), ("xpd10", None), ("xpd15", None), ("k15", None), ("fmt", None), ("f3t", None),
                ("inh", None), ("gspd", 3)]
 PLAYER_FIELDS = [("k", None), ("d", None), ("a", None), ("dmg", 3), ("gsh", 3), ("vspm", 2), ("cspm", 1),
-                 ("dpm", None), ("csd15", None)]
+                 ("dpm", None), ("csd15", None), ("gd15", None), ("xpd15", None), ("k15", None), ("a15", None),
+                 ("d15", None), ("fbk", None), ("fba", None), ("fbv", None), ("dtpm", None), ("dmpm", None),
+                 ("wpm", 2), ("wcpm", 2), ("cwb", None), ("mej", None), ("plt", None)]
 
 
 def _r(x, nd):

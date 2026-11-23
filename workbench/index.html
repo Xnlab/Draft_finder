@@ -958,6 +958,32 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
   .dr-c.ban.empty .dr-i{width:30px;height:30px}
   .dr-c b{font-size:.64rem}
 }
+
+/* 대회 이름 설명, 피어리스 복기 대회 묶음 */
+.lgguide{margin:8px 0 0;font-size:.82rem}
+.lgguide summary{cursor:pointer;color:var(--accent);font-weight:700;width:max-content}
+.lgguide dl{margin:8px 0 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 16px}
+.lgguide dl div{display:flex;gap:8px;min-width:0}
+.lgguide dt{font-weight:800;flex:none;min-width:84px}
+.lgguide dd{margin:0;color:var(--muted)}
+.sfil{display:grid;gap:8px;margin:0 0 14px}
+.sgrp{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sgrp .lab{font-size:.78rem;color:var(--muted);font-weight:700;min-width:64px}
+.menu .eb{vertical-align:-4px;margin-right:2px}
+#sleague-more{max-width:240px}
+/* 선수 스타일 */
+.sty{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 28px}
+.sty-g{grid-column:1/-1;margin:12px 0 2px;font-size:.78rem;font-weight:800;color:var(--muted)}
+.sty-g:first-child{margin-top:0}
+.sty-r{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) 64px;gap:10px;align-items:center;padding:5px 0;font-size:.86rem}
+.sty-r .tm-def{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sty-bar{position:relative;height:8px;border-radius:99px;background:var(--surface-2)}
+.sty-bar:before{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--faint)}
+.sty-bar i{position:absolute;top:-3px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--surface)}
+.sty-v{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;line-height:1.15}
+.sty-v small{display:block;font-weight:500;color:var(--muted);font-size:.7rem}
+.sty-ax{display:flex;justify-content:space-between;font-size:.7rem;color:var(--faint)}
+@media (max-width:760px){.sty{grid-template-columns:minmax(0,1fr)}.sty-r{grid-template-columns:110px minmax(0,1fr) 58px}}
 </style>
 
 <div class="wrap">
@@ -1012,6 +1038,7 @@ span.bl{color:var(--blue);font-weight:700}span.rd{color:var(--red);font-weight:7
         <span class="lab">조건</span>
         <div class="dd"><button class="pill" type="button" id="dd-patch" aria-expanded="false" aria-haspopup="true">패치 <b>전체</b></button><div class="menu" id="menu-patch" hidden></div></div>
         <div class="dd"><button class="pill" type="button" id="dd-league" aria-expanded="false" aria-haspopup="true">리그 <b>전체</b></button><div class="menu" id="menu-league" hidden></div></div>
+        <div class="dd"><button class="pill" type="button" id="dd-team" aria-expanded="false" aria-haspopup="true">팀 <b>전체</b></button><div class="menu" id="menu-team" hidden></div></div>
         <div class="dd"><button class="pill" type="button" id="dd-set" aria-expanded="false" aria-haspopup="true">세트 <b>전체</b></button><div class="menu" id="menu-set" hidden></div></div>
         <div class="dd"><button class="pill" type="button" id="dd-pos" aria-expanded="false" aria-haspopup="true">포지션 <b>상관없이</b></button><div class="menu" id="menu-pos" hidden></div></div>
       </div>
