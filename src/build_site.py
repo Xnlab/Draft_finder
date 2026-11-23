@@ -76,6 +76,12 @@ def _icon(filename: str, version: str, out: Path) -> str:
     return f"icons/{stem}.jpg"
 
 
+def _order(names, idx: dict) -> list[int]:
+    if names is None or (not hasattr(names, "__len__")):
+        return []
+    return [idx[x] for x in names if isinstance(x, str) and x in idx]
+
+
 def game_records(df: pd.DataFrame, idx: dict) -> list[dict]:
     rows = []
     for d in df.to_dict("records"):
@@ -91,6 +97,9 @@ def game_records(df: pd.DataFrame, idx: dict) -> list[dict]:
             "fb": _side(d["first_baron"]), "ft": _side(d["first_tower"]),
             "b": ids("blue"), "r": ids("red"),
             "bb": [idx[x] for x in d["blue_bans"]], "rb": [idx[x] for x in d["red_bans"]],
+            # 진영별 픽 순서(팀 안에서 1~5픽)와 선픽 진영: 밴픽 보드(@draft)가 쓴다
+            "bo": _order(d.get("blue_pick_order"), idx), "ro": _order(d.get("red_pick_order"), idx),
+            "fp": _side(d.get("first_pick")),
             "inc": not bool(d["data_complete"]),
             "sid": int(d["series_id"]), "sg": int(d["series_games"]), "so": bool(d["series_ok"]),
             "sp": d.get("split") if isinstance(d.get("split"), str) else None, "po": bool(d.get("playoffs") or False),

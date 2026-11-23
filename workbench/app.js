@@ -459,6 +459,7 @@ function colIcons(c){
   for(const b of c.blocks){
     if(b.type==='search')return[...Object.values(b.board.blue||{}),...Object.values(b.board.red||{})].map(en=>chId(en)).filter(x=>x!=null);
     if(b.type==='series'){const s=pickSeries(b);if(s)return s.games[0].b.concat(s.games[0].r).filter(x=>x>=0).slice(0,6)}
+    if(b.type==='draft'){const g=draftGame(b);if(g)return g.b.concat(g.r).filter(x=>x>=0).slice(0,6)}
     if(b.type==='game'||b.type==='flow'){const g=pickGame(b);if(g)return g.b.concat(g.r).filter(x=>x>=0).slice(0,6)}
   }
   return[];
@@ -509,6 +510,7 @@ function columnBody(c,i){
     if(b.type==='search')return searchWidget(b,`${i}:${j}`);
     if(b.type==='series')return seriesWidget(b);
     if(b.type==='game')return gameWidget(b);
+    if(b.type==='draft')return draftWidget(b);
     if(b.type==='team')return teamWidget(b);
     if(b.type==='form')return formWidget(b);
     if(b.type==='flow')return flowWidget(b);
@@ -1129,6 +1131,51 @@ function seriesWidget(b){
      <div class="dact" style="margin-top:12px"><button class="btn" type="button" data-wseries="${s.id}:${n}">시리즈 복기 열기</button></div>`,
     '인기 순위: 시즌 포지션별 픽 수');
 }
+/* @draft: 한 세트의 밴픽 보드 (밴·픽 순서, 이전 세트 소진, 강조, 특정 시점까지만 보기)
+   팀 안의 밴·픽 순서는 데이터 그대로. 두 팀 사이 순서는 표준 드래프트 규칙(선픽 팀이 1페이즈 밴·픽을 먼저, 2페이즈 밴은 후픽 팀이 먼저)으로 맞춘다 */
+const dtn=name=>{const k=tn(name);return k===name&&name.length>10?(teamStyle(name).short||name):k};
+function teamIs(name,q){const t=findTeam(q);return t?t.name===name:(name===q||tn(name)===q)}
+function draftGame(b){
+  if(b.id!=null||b.nth!=null)return pickGame(b);
+  const [x,y]=b.teams;
+  const gs=G.filter(g=>g.s===b.set&&((teamIs(g.bt,x)&&teamIs(g.rt,y))||(teamIs(g.bt,y)&&teamIs(g.rt,x)))&&(!b.date||g.d===b.date));
+  return gs.sort((a,c)=>a.d<c.d?1:a.d>c.d?-1:0)[0]||null;
+}
+const DRAFT_SEQ=(()=>{const q=[];
+  [['F',0],['S',0],['F',1],['S',1],['F',2],['S',2]].forEach(([t,i])=>q.push({t,k:'ban',i,ph:1}));
+  [['F',0],['S',0],['S',1],['F',1],['F',2],['S',2]].forEach(([t,i])=>q.push({t,k:'pick',i,ph:1}));
+  [['S',3],['F',3],['S',4],['F',4]].forEach(([t,i])=>q.push({t,k:'ban',i,ph:2}));
+  [['S',3],['F',3],['F',4],['S',4]].forEach(([t,i])=>q.push({t,k:'pick',i,ph:2}));
+  return q.map((x,n)=>({...x,step:n+1}))})();
+function draftWidget(b){
+  const g=draftGame(b);if(!g)return wErr(b.teams?`${b.teams.join(' vs ')} ${b.set}세트 경기를 찾을 수 없음`:'경기를 찾을 수 없음');
+  const F=g.fp||'b',side=t=>t==='F'?F:(F==='b'?'r':'b');
+  const order={b:g.bo&&g.bo.length===5?g.bo:g.b,r:g.ro&&g.ro.length===5?g.ro:g.r};
+  const exact=g.bo&&g.bo.length===5&&g.ro&&g.ro.length===5;
+  const upto=b.upto||20,hl=new Set((b.hl||[]).map(chId).filter(x=>x!=null));
+  let pn=0;const cells={b:{ban:[],pick:[]},r:{ban:[],pick:[]}};
+  for(const q of DRAFT_SEQ){const sd=side(q.t),c=q.k==='ban'?(g[sd+'b']||[])[q.i]:order[sd][q.i];
+    if(q.k==='pick')pn++;
+    cells[sd][q.k].push({...q,c,pn:q.k==='pick'?pn:null,show:q.step<=upto&&c!=null&&c>=0});}
+  const roleOf=(sd,c)=>{const i=g[sd].indexOf(c);return i>=0?ROLE_KO[ROLES[i]]:''};
+  const cell=(sd,x)=>{
+    if(!x.show)return `<div class="dr-c ${x.k} empty"><span class="dr-i"></span><small>${x.k==='ban'?'밴':x.pn+'픽'}</small></div>`;
+    const ch=CH[x.c],h=hl.has(x.c)?' hl':'';
+    return `<div class="dr-c ${x.k}${h}" title="${esc(ch.ko)}"><span class="dr-i"><img src="${ch.icon}" alt="" width="${x.k==='ban'?34:46}" height="${x.k==='ban'?34:46}">${x.k==='pick'?`<em>${x.pn}</em>`:''}</span><b>${esc(ch.ko)}</b><small>${x.k==='ban'?'밴':roleOf(sd,x.c)}</small></div>`;
+  };
+  const row=(ph,k,label)=>`<div class="dr-row ${k}"><span class="dr-lab">${label}</span>${['b','r'].map(sd=>`<div class="dr-cells ${sd}">${cells[sd][k].filter(x=>x.ph===ph).map(x=>cell(sd,x)).join('')}</div>`).join('')}</div>`;
+  const done=upto>=20,won=sd=>done&&g.w===sd;
+  const head=sd=>{const name=sd==='b'?g.bt:g.rt;return `<div class="dr-team ${sd}">${emblem(name,22)}<b>${esc(dtn(name))}</b><small>${sd==='b'?'블루':'레드'}${F===sd?' · 선픽':''}</small>${won(sd)?'<em>승</em>':''}</div>`};
+  // 피어리스: 이 세트 전에 두 팀이 이미 쓴 챔피언
+  const s=g.sid!=null?SERIES.get(g.sid):null,prev=s?s.games.filter(x=>x.s<g.s):[];
+  const used=name=>prev.flatMap(x=>(x.bt===name?x.b:x.rt===name?x.r:[])).filter(c=>c>=0);
+  const prevHtml=prev.length?`<div class="dr-prev"><span class="dr-lab">${prev.length===1?'1세트':`1~${prev.length}세트`} 소진</span>${['b','r'].map(sd=>`<div class="dr-used ${sd}">${used(sd==='b'?g.bt:g.rt).map(c=>`<span class="dr-u${hl.has(c)?' hl':''}" title="${esc(CH[c].ko)}"><img src="${CH[c].icon}" alt="${esc(CH[c].ko)}" width="26" height="26"></span>`).join('')}</div>`).join('')}</div>`:'';
+  const body=`<div class="drb"><div class="dr-row dr-heads"><span class="dr-lab"></span>${head('b')}${head('r')}</div>${prevHtml}
+    ${row(1,'ban','1페이즈 밴')}${row(1,'pick','1페이즈 픽')}${row(2,'ban','2페이즈 밴')}${row(2,'pick','2페이즈 픽')}</div>`;
+  const sub=`${esc(g.lg)} · ${fmtDate(g.d)} · 패치 ${esc(g.p)}${done?'':` · ${upto}번째 선택까지`}`;
+  const note=exact?'숫자: 전체 픽 순서':'픽 순서 정보가 없어 포지션 순서로 표시';
+  return dbox(`${esc(dtn(g.bt))} vs ${esc(dtn(g.rt))} · ${g.s}세트 밴픽`,sub,body,note);
+}
 function gameWidget(b){
   const g=pickGame(b);if(!g)return '';
   return dbox(`${esc(tn(g.bt))} vs ${esc(tn(g.rt))}`,`${esc(g.lg)} · ${fmtDate(g.d)} · ${g.s}세트`,`<div class="games one">${gameStripHtml(g)}</div>`,'');
@@ -1460,12 +1507,19 @@ function colEmbed(kind,a){
   }
   if(kind==='series'){only(['pick','set']);const pick=a.pick||'longest';if(!['longest','latest'].includes(pick))throw new Error('@series pick은 longest 또는 latest');return{pick,set:'set'in a?int('set',a.set):null}}
   if(kind==='game'){only(['nth','id']);return ref()}
+  if(kind==='draft'){only(['nth','id','teams','set','date','upto','hl']);let o;
+    if('id'in a||'nth'in a)o=ref();
+    else if(a.teams){const t=a.teams.split(',').map(x=>x.trim()).filter(Boolean);if(t.length!==2)throw new Error('@draft teams는 "젠지,BLG"처럼 두 팀');o={teams:t,set:int('set',a.set||'1')};if(a.date){if(!/^\d{4}-\d{2}-\d{2}$/.test(a.date))throw new Error('@draft date는 2026-11-14 모양');o.date=a.date}}
+    else throw new Error('@draft에는 teams="팀1,팀2" set=N 또는 id=게임ID가 필요해요');
+    if('upto'in a){o.upto=int('upto',a.upto);if(o.upto<1||o.upto>20)throw new Error('@draft upto는 1~20 (밴·픽 선택 순서)')}
+    if(a.hl)o.hl=a.hl.split(',').map(x=>x.trim()).filter(Boolean);
+    return o}
   if(kind==='team'){only(['name','show']);if(!a.name)throw new Error('@team에는 name="팀"이 필요해요');const o={name:a.name};
     if('show'in a){const ks=a.show.split(',').filter(Boolean),bad=ks.filter(k=>!MKEYS().includes(k));if(bad.length||!ks.length)throw new Error(`@team show에 알 수 없는 지표 ${bad.join(', ')} (쓸 수 있는 것: ${MKEYS().join(', ')})`);o.show=ks}return o}
   if(kind==='rank'){only(['stat','team','league']);if(!MKEYS().includes(a.stat))throw new Error(`@rank에는 stat=지표가 필요해요 (쓸 수 있는 것: ${MKEYS().join(', ')})`);if(!a.team&&!a.league)throw new Error('@rank에는 team="팀" 또는 league=LCK가 필요해요');const o={stat:a.stat};if(a.team)o.team=a.team;if(a.league)o.league=a.league;return o}
   if(kind==='form'){only(['team','n','until']);if(!a.team)throw new Error('@form에는 team="팀"이 필요해요');const n=int('n',a.n||'10');if(n<3||n>30)throw new Error('@form n은 3~30 사이');const o={team:a.team,n};if(a.until){if(!/^\d{4}-\d{2}-\d{2}$/.test(a.until))throw new Error('@form until은 2026-11-14 모양');o.until=a.until}return o}
   if(kind==='flow'){only(['nth','id','team','last']);let o;if('id'in a||'nth'in a)o=ref();else if(a.team){o={last:int('last',a.last||'1')};if(o.last<1)throw new Error('@flow last는 1 이상')}else throw new Error('@flow에는 id=게임ID, nth=N, team="팀" 중 하나가 필요해요');if(a.team)o.team=a.team;return o}
-  throw new Error(`알 수 없는 상자 @${kind} (search/series/game/team/rank/form/flow)`);
+  throw new Error(`알 수 없는 상자 @${kind} (search/series/game/draft/team/rank/form/flow)`);
 }
 
 /* 원고 저장소. claude.ai의 작업실 페이지에서만 열린다. 그 밖(내 컴퓨터에서 연 경우)에는 이 브라우저에만 임시 저장 */
@@ -1524,7 +1578,7 @@ const TEMPLATE_BODY=`## 한 줄 결론
 
 ## 정리와 다음 관전 포인트
 (무엇이 승부를 갈랐나, 다음 경기에서 볼 것.)`;
-const BOXES=[['조합이 나온 경기 (챔피언)','@search blue.mid=오리아나'],['팀이 고른 조합','@search team="젠지" blue.mid=오리아나'],['피어리스 시리즈','@series pick=latest set=3'],['경기 하나 밴픽','@game id=게임ID'],
+const BOXES=[['조합이 나온 경기 (챔피언)','@search blue.mid=오리아나'],['팀이 고른 조합','@search team="젠지" blue.mid=오리아나'],['피어리스 시리즈','@series pick=latest set=3'],['경기 하나 밴픽','@game id=게임ID'],['밴픽 보드 (순서)','@draft teams="젠지,BLG" set=2'],['밴픽 보드 (그 시점까지)','@draft teams="젠지,BLG" set=2 upto=6 hl="카시오페아"'],
   ['팀 지표','@team name="젠지"'],['팀 지표 몇 개만','@team name="젠지" show=gd15,barS'],['지표 하나 리그 순위','@rank stat=barS team="젠지"'],['최근 흐름','@form team="젠지" n=10'],['경기 흐름 (최근 경기)','@flow team="젠지"']];
 
 function renderWrite(id){

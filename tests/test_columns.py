@@ -144,3 +144,19 @@ def test_subheadings():
     c = parse_column("---\ntitle: t\ndate: 2026-01-01\n---\n## 분기점\n### 1. (12:30) 첫 용\n설명", "x")
     assert [b["type"] for b in c["blocks"]] == ["h", "h3", "p"]
     assert c["blocks"][1]["text"] == "1. (12:30) 첫 용"
+
+
+def test_draft_box_by_teams_and_set():
+    from src.columns import parse_column
+    c = parse_column('---\ntitle: t\ndate: 2026-11-21\n---\n@draft teams="Gen.G,BLG" set=2 upto=6 hl="Cassiopeia,Nautilus"\n')
+    b = [x for x in c["blocks"] if x["type"] == "draft"][0]
+    assert b["teams"] == ["Gen.G", "BLG"] and b["set"] == 2 and b["upto"] == 6
+    assert b["hl"] == ["Cassiopeia", "Nautilus"]
+
+
+def test_draft_box_rejects_bad_args():
+    import pytest
+    from src.columns import ColumnError, parse_column
+    for line in ['@draft teams="Gen.G" set=2', '@draft teams="Gen.G,BLG" upto=21', '@draft set=2']:
+        with pytest.raises(ColumnError):
+            parse_column(f"---\ntitle: t\ndate: 2026-11-21\n---\n{line}\n")

@@ -20,6 +20,7 @@
     @search blue.mid=Azir red.mid=Orianna sets=late
     @series pick=longest set=4
     @game nth=40            (또는 id=게임ID)
+    @draft teams="Gen.G,BLG" set=2 upto=6 hl="Cassiopeia,Nautilus"   (한 세트 밴픽 보드. upto=그 선택까지만, hl=강조)
     @team name="Gen.G"      (팀 지표를 리그 평균·순위와 비교. show=gd15,barS 로 고른 지표만 카드로)
     @rank stat=barS team="Gen.G"                (지표 하나로 리그 전체 팀 순위표, 그 팀 강조)
     @form team="Gen.G" n=10 until=2026-11-14   (최근 n경기 15분 골드 차이와 승패)
@@ -37,7 +38,7 @@ import re
 from pathlib import Path
 
 POSITIONS = ["top", "jng", "mid", "bot", "sup"]
-EMBEDS = {"search", "series", "game", "team", "form", "flow", "rank"}
+EMBEDS = {"search", "series", "game", "draft", "team", "form", "flow", "rank"}
 KINDS = {"column", "note"}
 # @team show= 에 쓸 수 있는 지표 키 (workbench/app.js의 EARLY, WHOLE과 같다)
 TEAM_METRICS = ["gd15", "xpd15", "csd15", "fb", "ft", "plt", "grub", "her",
@@ -166,6 +167,28 @@ def _check_embed(kind: str, args: dict) -> dict:
             raise ColumnError('@flow에는 id=게임ID, nth=N, team="팀" 중 하나가 필요합니다')
         if args.get("team"):
             out["team"] = args["team"]
+        return out
+    if kind == "draft":
+        _only(kind, args, {"nth", "id", "teams", "set", "date", "upto", "hl"})
+        if "id" in args or "nth" in args:
+            out = _game_ref(kind, args)
+        elif args.get("teams"):
+            teams = [x.strip() for x in args["teams"].split(",") if x.strip()]
+            if len(teams) != 2:
+                raise ColumnError('@draft teams는 "젠지,BLG"처럼 두 팀이어야 합니다')
+            out = {"teams": teams, "set": _int("set", args.get("set", "1"))}
+            if "date" in args:
+                if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args["date"]):
+                    raise ColumnError("@draft date는 2026-11-14 모양이어야 합니다")
+                out["date"] = args["date"]
+        else:
+            raise ColumnError('@draft에는 teams="팀1,팀2" set=N 또는 id=게임ID가 필요합니다')
+        if "upto" in args:
+            out["upto"] = _int("upto", args["upto"])
+            if not 1 <= out["upto"] <= 20:
+                raise ColumnError("@draft upto는 1~20 사이여야 합니다 (밴·픽 선택 순서)")
+        if args.get("hl"):
+            out["hl"] = [x.strip() for x in args["hl"].split(",") if x.strip()]
         return out
     _only(kind, args, {"nth", "id"})
     return _game_ref(kind, args)
