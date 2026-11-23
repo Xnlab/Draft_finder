@@ -8,7 +8,7 @@ let POSTS=[],META={},AUTHOR={};
 const kickOf=p=>`${p.draft?'<span class="tag warn">초안</span> ':''}${esc(p.kind==='note'?KIND.note:(p.kick||KIND.column))}`;
 const tagsOf=p=>(p.tags||[]).map(t=>`<span class="ptag">#${esc(t)}</span>`).join('');
 const icons=p=>p.icons&&p.icons.length?`<div class="ics">${p.icons.map(i=>`<img src="${esc(i)}" alt="" width="28" height="28">`).join('')}</div>`:'';
-const metaLine=p=>`${fmtDate(p.date)} · ${p.minutes||1}분 읽기`;
+const metaLine=p=>`${fmtDate(p.date)} | ${p.minutes||1}분 읽기`;
 
 function feature(p){
   return `<a class="card feat" href="#/${encodeURIComponent(p.slug)}"><div class="kick">${kickOf(p)}</div>
@@ -67,7 +67,7 @@ function route(){
   const h=decodeURIComponent(location.hash.replace(/^#/,''));
   let navKind='column';
   if(h.startsWith('/')){const p=POSTS.find(x=>x.slug===h.slice(1));navKind=p?p.kind:'column';$('#view').innerHTML=post(h.slice(1));
-    document.title=p?`${p.title} · Draft Finder`:'Draft Finder';buildToc();
+    document.title=p?`${p.title} | Draft Finder`:'Draft Finder';buildToc();
     document.querySelectorAll('.form').forEach(e=>{e.scrollLeft=e.scrollWidth})}   // 최근 흐름은 가장 최근 경기부터 보이게
   else{navKind=h==='notes'?'note':'column';$('#view').innerHTML=list(navKind);document.title='Draft Finder'}
   for(const k of['column','note'])$('#nav-'+k).setAttribute('aria-current',k===navKind?'page':'false');
