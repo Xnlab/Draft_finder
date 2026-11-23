@@ -423,9 +423,9 @@ function seriesDetail(s){
   const score=sp?`<button class="btn" type="button" data-sreveal>결과 보기</button>`:`<b>${esc(s.A)} ${s.wA} : ${s.wB} ${esc(s.B)}</b>`;
   const veil=hidden(g.id)&&sp;
   const step=S.dStep||20,{html:board,exact}=draftBoard(g,{upto:step,veil,last:true});
-  const stepLab=step>=20?'전체':`${step}/20 · ${step<=6?'1페이즈 밴':step<=12?'1페이즈 픽':step<=16?'2페이즈 밴':'2페이즈 픽'}`;
-  const setCard=`<section class="card sd"><div class="gh"><span class="lg">${n}세트</span><span>${fmtDate(g.d)} · 패치 ${esc(g.p)}</span>
-    <span class="dstep"><button class="chip" type="button" data-dstep="0" ${step<=1?'disabled':''}>처음</button><button class="chip" type="button" data-dstep="-1" ${step<=1?'disabled':''} aria-label="이전 선택">◀</button><b>${stepLab}</b><button class="chip" type="button" data-dstep="1" ${step>=20?'disabled':''} aria-label="다음 선택">▶</button><button class="chip" type="button" data-dstep="20" ${step>=20?'disabled':''}>전체</button><button class="chip" type="button" data-open="${g.id}">경기 상세</button></span></div>
+  const stepLab=step>=20?'전체':`${step}/20 | ${step<=6?'1페이즈 밴':step<=12?'1페이즈 픽':step<=16?'2페이즈 밴':'2페이즈 픽'}`;
+  const setCard=`<section class="card sd"><div class="gh"><span class="lg">${n}세트</span><span>${fmtDate(g.d)} | 패치 ${esc(g.p)}</span>
+    <span class="dstep"><button class="chip" type="button" data-dstep="0" ${step<=1?'disabled':''}>처음</button><button class="chip" type="button" data-dstep="-1" ${step<=1?'disabled':''} aria-label="이전 선택">◀</button><b>${stepLab}</b><button class="chip" type="button" data-dstep="1" ${step>=20?'disabled':''} aria-label="다음 선택">▶</button><button class="chip" type="button" data-dstep="20" ${step>=20?'disabled':''}>전체</button></span></div>
     ${board}${exact?'':'<p class="muted" style="font-size:.75rem;margin:8px 0 0">픽 순서 정보가 없어 포지션 순서로 표시</p>'}</section>`;
   const banned=new Set(g.bb.concat(g.rb));
   /* 챔피언 풀: 이번 세트에 소진된 챔피언은 색 그대로 + 세트 번호 표시, 앞 세트에 소진된 챔피언은 흐리게 */
@@ -434,7 +434,7 @@ function seriesDetail(s){
     return `<div class="pg"><h6 style="color:${ROLE_COLORS[r]}">${ROLE_KO[r]} <small>${list.filter(c=>!con.has(c.id)).length}/${list.length}</small></h6><div class="pt">${list.map(c=>{const u=con.get(c.id),now=u&&u.set===n,bn=!now&&banned.has(c.id);return `<div class="tile ${now?'now':bn?'used ban':u?'used':''}" title="${esc(c.ko)}${now||u&&!bn?` · ${u.set}세트에 소진`:''}${bn?` · ${n}세트에 밴`:''}"><img src="${c.icon}" alt="" width="30" height="30" loading="lazy">${now?`<b>${n}</b>`:''}</div>`}).join('')}</div></div>`;
   }).join('');
   return `<button class="chip" type="button" data-sback>← 시리즈 목록</button>
-    <div class="sd-top"><h1>${esc(tn(s.A))} <span class="muted">vs</span> ${esc(tn(s.B))}</h1><span class="muted">${esc(s.league)} · ${fmtDate(s.date)}</span>${score}</div>
+    <div class="sd-top"><h1>${esc(tn(s.A))} <span class="muted">vs</span> ${esc(tn(s.B))}</h1><span class="muted">${esc(s.league)} | ${fmtDate(s.date)}</span>${score}</div>
     <div class="tabs" role="tablist" style="flex-wrap:wrap;margin-bottom:14px">${tabs}</div>
     ${setCard}
     <section class="card story"><div class="tpanels">${teamPanelHtml(s,s.A,n)}${teamPanelHtml(s,s.B,n)}</div>
@@ -681,10 +681,10 @@ function teamStyle(name){
   return _fb[name]={short:initials(name),ko:name,c:hsl2hex(hue,58,42),c2:hsl2hex((hue+22)%360,52,18)};
 }
 const tn=name=>teamStyle(name).ko||name;
-function emblem(name,size){
+function emblem(name,size,wide){
   const st=teamStyle(name),n=st.short.length,fs=Math.round(size*(n<=2?.4:n===3?.32:n===4?.26:.22));
   // 사용 허락을 받은 팀만 teams.json에 logo가 있다. 없으면 약칭+팀 색 엠블럼
-  if(st.logo)return `<span class="eb lg" style="width:${size}px;height:${size}px" aria-hidden="true"><img src="${esc(st.logo)}" alt="" width="${size}" height="${size}"></span>`;
+  if(st.logo){const w=Math.round(wide&&st.logoW?size*st.logoW:size);return `<span class="eb lg" style="width:${w}px;height:${size}px" aria-hidden="true"><img src="${esc(st.logo)}" alt="" width="${w}" height="${size}"></span>`}
   return `<span class="eb" style="--c:${st.c};--c2:${st.c2};--f:${fgOn(st.c)};width:${size}px;height:${size}px;font-size:${fs}px" aria-hidden="true">${esc(st.short)}</span>`;
 }
 /* 마이 팀을 고르면 사이트 전체의 강조색, 배경 색조, 헤더가 그 팀 색으로 바뀐다 (라이트/다크 모두 글자 명암비를 맞춘다) */
@@ -1146,7 +1146,7 @@ const DRAFT_SEQ=(()=>{const q=[];
 function draftWidget(b){
   const g=draftGame(b);if(!g)return wErr(b.teams?`${b.teams.join(' vs ')} ${b.set}세트 경기를 찾을 수 없음`:'경기를 찾을 수 없음');
   const upto=b.upto||20,{html,exact}=draftBoard(g,{upto,hl:b.hl});
-  const sub=`${esc(g.lg)} · ${fmtDate(g.d)} · 패치 ${esc(g.p)}${upto>=20?'':` · ${upto}번째 선택까지`}`;
+  const sub=`${esc(g.lg)} | ${fmtDate(g.d)} | 패치 ${esc(g.p)}${upto>=20?'':` | ${upto}번째 선택까지`}`;
   return dbox(`${esc(dtn(g.bt))} vs ${esc(dtn(g.rt))} · ${g.s}세트 밴픽`,sub,html,exact?'숫자: 전체 픽 순서':'픽 순서 정보가 없어 포지션 순서로 표시');
 }
 /* 밴픽 보드 본문 (칼럼 @draft와 피어리스 복기가 함께 쓴다). veil=결과 숨김 */
@@ -1162,13 +1162,13 @@ function draftBoard(g,o){
     cells[sd][q.k].push({...q,c,pn:q.k==='pick'?pn:null,show:q.step<=upto&&c!=null&&c>=0});}
   const roleOf=(sd,c)=>{const i=g[sd].indexOf(c);return i>=0?ROLE_KO[ROLES[i]]:''};
   const cell=(sd,x)=>{
-    if(!x.show)return `<div class="dr-c ${x.k} empty"><span class="dr-i"></span><small>${x.k==='ban'?'밴':x.pn+'픽'}</small></div>`;
+    if(!x.show)return `<div class="dr-c ${x.k} empty"><span class="dr-i"></span>${x.k==='pick'?`<small>${x.pn}픽</small>`:''}</div>`;
     const ch=CH[x.c],h=hl.has(x.c)||(o.last&&upto<20&&x.step===upto)?' hl':'';
-    return `<div class="dr-c ${x.k}${h}" title="${esc(ch.ko)}"><span class="dr-i"><img src="${ch.icon}" alt="" width="${x.k==='ban'?34:46}" height="${x.k==='ban'?34:46}">${x.k==='pick'?`<em>${x.pn}</em>`:''}</span><b>${esc(ch.ko)}</b><small>${x.k==='ban'?'밴':roleOf(sd,x.c)}</small></div>`;
+    return `<div class="dr-c ${x.k}${h}" title="${esc(ch.ko)}${x.k==='ban'?' (밴)':' · '+roleOf(sd,x.c)}"><span class="dr-i"><span class="dr-im"><img src="${ch.icon}" alt="" width="${x.k==='ban'?34:46}" height="${x.k==='ban'?34:46}"></span>${x.k==='pick'?`<em>${x.pn}</em>`:''}</span><b>${esc(ch.ko)}</b></div>`;
   };
   const row=(ph,k,label)=>`<div class="dr-row ${k}"><span class="dr-lab">${label}</span>${['b','r'].map(sd=>`<div class="dr-cells ${sd}">${cells[sd][k].filter(x=>x.ph===ph).map(x=>cell(sd,x)).join('')}</div>`).join('')}</div>`;
   const done=upto>=20,won=sd=>done&&!o.veil&&g.w===sd;
-  const head=sd=>{const name=sd==='b'?g.bt:g.rt;return `<div class="dr-team ${sd}">${emblem(name,22)}<b>${esc(dtn(name))}</b><small>${sd==='b'?'블루':'레드'}${F===sd?' · 선픽':''}</small>${won(sd)?'<em>승</em>':''}</div>`};
+  const head=sd=>{const name=sd==='b'?g.bt:g.rt;return `<div class="dr-team ${sd}">${emblem(name,22,true)}<b>${esc(dtn(name))}</b><small>${sd==='b'?'블루':'레드'}${F===sd?' | 선픽':''}</small>${won(sd)?'<em>승</em>':''}</div>`};
   // 피어리스: 이 세트 전에 두 팀이 이미 쓴 챔피언
   const s=g.sid!=null?SERIES.get(g.sid):null,prev=s?s.games.filter(x=>x.s<g.s):[];
   const used=name=>prev.flatMap(x=>(x.bt===name?x.b:x.rt===name?x.r:[])).filter(c=>c>=0);

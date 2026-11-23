@@ -10,7 +10,7 @@
   "Kiwoom DRX": {"short": "DRX", "ko": "키움 DRX", "c": "#2F80ED", "c2": "#0B1E3D", "logo": "logos/krx.svg"},
   "BNK FEARX": {"short": "BFX", "ko": "BNK 피어엑스", "c": "#C8102E", "c2": "#1E0A10", "logo": "logos/bfx.svg"},
   "DN SOOPers": {"short": "DNS", "ko": "DN SOOPers", "c": "#14B88A", "c2": "#06251C", "logo": "logos/dns.svg"},
-  "Bilibili Gaming": {"short": "BLG", "ko": "Bilibili Gaming", "c": "#00A1D6", "c2": "#062433"},
+  "Bilibili Gaming": {"short": "BLG", "ko": "BLG", "c": "#00A1D6", "c2": "#062433", "logo": "logos/blg.svg", "logoW": 2.8},
   "JD Gaming": {"short": "JDG", "ko": "JD Gaming", "c": "#E60012", "c2": "#250408"},
   "Top Esports": {"short": "TES", "ko": "Top Esports", "c": "#F5C400", "c2": "#241D02"},
   "Weibo Gaming": {"short": "WBG", "ko": "Weibo Gaming", "c": "#E6162D", "c2": "#250A0E"},
